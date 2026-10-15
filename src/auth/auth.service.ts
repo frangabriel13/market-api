@@ -1,7 +1,8 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { hashPassword, verifyPassword } from '../common/password.js';
+import { generateToken, hashToken } from '../common/tokens.js';
 import type { Usuario } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { Login, Sesion } from '../schemas/auth.js';
@@ -18,10 +19,6 @@ export interface ResultadoAuth {
 
 const CREDENCIALES_INVALIDAS = 'Email o contraseña incorrectos';
 const SESION_INVALIDA = 'La sesión expiró. Volvé a ingresar.';
-
-function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
 
 @Injectable()
 export class AuthService {
@@ -73,7 +70,7 @@ export class AuthService {
   }
 
   private async crearSesion(usuario: Usuario): Promise<ResultadoAuth> {
-    const refreshToken = randomBytes(32).toString('base64url');
+    const refreshToken = generateToken();
     const refreshExpiraEn = new Date(Date.now() + REFRESH_TOKEN_DURACION_MS);
     await this.prisma.sesion.create({
       data: {

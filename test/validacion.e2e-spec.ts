@@ -1,17 +1,9 @@
-import {
-  Body,
-  Controller,
-  INestApplication,
-  Post,
-  Query,
-} from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Body, Controller, Post, Query } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
 import request from 'supertest';
-import type { App } from 'supertest/types.js';
 import { z } from 'zod';
-import { AppModule } from '../src/app.module.js';
 import { Publico } from '../src/auth/decorators.js';
+import { crearApp, type AppDeTest } from './utils/app.js';
 
 class PruebaBodyDto extends createZodDto(
   z.object({
@@ -34,15 +26,10 @@ class PruebaController {
 }
 
 describe('Validación global con zod (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: AppDeTest;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-      controllers: [PruebaController],
-    }).compile();
-    app = moduleRef.createNestApplication();
-    await app.init();
+    app = await crearApp([PruebaController]);
   });
 
   afterAll(async () => {

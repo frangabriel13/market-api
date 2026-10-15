@@ -1,11 +1,8 @@
-import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import type { App } from 'supertest/types.js';
-import { AppModule } from '../src/app.module.js';
 import type { JwtPayload } from '../src/auth/auth.constants.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { crearApp, type AppDeTest } from './utils/app.js';
 import {
   crearMarca,
   crearUsuario,
@@ -19,7 +16,7 @@ function cookieRefresh(res: request.Response): string | undefined {
 }
 
 describe('Auth (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: AppDeTest;
   let prisma: PrismaService;
   let jwt: JwtService;
   let marcaId: string;
@@ -28,11 +25,7 @@ describe('Auth (e2e)', () => {
     request(app.getHttpServer()).post('/auth/login').send({ email, password });
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleRef.createNestApplication();
-    await app.init();
+    app = await crearApp();
     prisma = app.get(PrismaService);
     jwt = app.get(JwtService);
   });

@@ -5,15 +5,13 @@ const texto = optionalEnv(z.string());
 const url = optionalEnv(z.url());
 
 const SERVICIOS_OBLIGATORIOS_EN_PRODUCCION = [
-  'R2_ACCOUNT_ID',
-  'R2_ACCESS_KEY_ID',
-  'R2_SECRET_ACCESS_KEY',
-  'R2_BUCKET',
-  'R2_PUBLIC_URL',
+  'STORAGE_REGION',
+  'STORAGE_ACCESS_KEY_ID',
+  'STORAGE_SECRET_ACCESS_KEY',
+  'STORAGE_BUCKET',
+  'STORAGE_PUBLIC_URL',
   'RESEND_API_KEY',
   'EMAIL_FROM',
-  'TURNSTILE_SECRET_KEY',
-  'SENTRY_DSN',
 ] as const;
 
 export const envSchema = z
@@ -41,18 +39,19 @@ export const envSchema = z
 
     JWT_SECRET: z.string().min(32, 'Tiene que tener al menos 32 caracteres'),
 
-    R2_ACCOUNT_ID: texto,
-    R2_ACCESS_KEY_ID: texto,
-    R2_SECRET_ACCESS_KEY: texto,
-    R2_BUCKET: texto,
-    R2_PUBLIC_URL: url,
+    // Almacenamiento compatible con S3 (hoy Supabase Storage). Sin
+    // STORAGE_ENDPOINT se usa AWS S3.
+    STORAGE_ENDPOINT: url,
+    STORAGE_REGION: texto,
+    STORAGE_ACCESS_KEY_ID: texto,
+    STORAGE_SECRET_ACCESS_KEY: texto,
+    STORAGE_BUCKET: texto,
+    STORAGE_PUBLIC_URL: url,
 
     RESEND_API_KEY: texto,
     EMAIL_FROM: texto,
 
-    TURNSTILE_SECRET_KEY: texto,
 
-    SENTRY_DSN: url,
 
     VERCEL_TOKEN: texto,
     VERCEL_PROJECT_ID: texto,

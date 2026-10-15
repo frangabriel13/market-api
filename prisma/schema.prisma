@@ -41,8 +41,21 @@ model Usuario {
   marcaId      String? @unique @db.Uuid
   activo       Boolean @default(true)
 
-  marca    Marca?   @relation(fields: [marcaId], references: [id], onDelete: Restrict)
-  sesiones Sesion[]
+  marca          Marca?              @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  sesiones       Sesion[]
+  recuperaciones TokenRecuperacion[]
+}
+
+model TokenRecuperacion {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  usuarioId String   @db.Uuid
+  tokenHash String   @unique
+  expiraEn  DateTime
+  creadoEn  DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
 }
 
 model Sesion {

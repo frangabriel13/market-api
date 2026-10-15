@@ -3,9 +3,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_PIPE } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { AuthModule } from './auth/auth.module.js';
+import { CategoriasModule } from './categorias/categorias.module.js';
 import { ZodValidationPipe } from './common/zod-validation.pipe.js';
 import { validateEnv } from './config/env.js';
 import { loggerConfig } from './config/logger.js';
+import { MarcasModule } from './marcas/marcas.module.js';
+import { OpcionesEntregaModule } from './opciones-entrega/opciones-entrega.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 
 @Module({
@@ -17,6 +20,9 @@ import { PrismaModule } from './prisma/prisma.module.js';
     }),
     PrismaModule,
     AuthModule,
+    MarcasModule,
+    OpcionesEntregaModule,
+    CategoriasModule,
   ],
   providers: [{ provide: APP_PIPE, useClass: ZodValidationPipe }],
 })

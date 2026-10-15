@@ -25,6 +25,8 @@
     "prebuild": "prisma generate"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1151.0",
+    "@aws-sdk/s3-request-presigner": "^3.1151.0",
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.0.1",
     "@nestjs/core": "^12.0.1",
@@ -42,6 +44,7 @@
     "pino-http": "^11.0.0",
     "prisma": "7.10.0",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.33.0",
     "rxjs": "^7.8.1",
     "zod": "^4.6.7"
   },
