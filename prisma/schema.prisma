@@ -1,0 +1,219 @@
+// La URL de la base se configura en prisma.config.ts (DATABASE_URL).
+// Precios siempre en pesos enteros, sin IVA ni recargos.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Rol {
+  ADMIN
+  FABRICANTE
+}
+
+enum EstadoMarca {
+  ACTIVA
+  PAUSADA
+  BAJA
+}
+
+enum TipoEntrega {
+  RETIRO
+  ENVIO
+}
+
+enum EstadoPedido {
+  NUEVO
+  PAGADO
+  EN_PREPARACION
+  ENTREGADO
+  CANCELADO
+}
+
+model Usuario {
+  id           String  @id @default(uuid(7)) @db.Uuid
+  email        String  @unique
+  passwordHash String
+  rol          Rol
+  // Solo FABRICANTE. Único: una sola cuenta por marca.
+  marcaId      String? @unique @db.Uuid
+  activo       Boolean @default(true)
+
+  marca    Marca?   @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  sesiones Sesion[]
+}
+
+// Una por dispositivo logueado. Guarda el hash (sha256) del refresh token,
+// nunca el token. Se rota en cada refresh y se borra en el logout.
+model Sesion {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  usuarioId String   @db.Uuid
+  tokenHash String   @unique
+  expiraEn  DateTime
+  creadoEn  DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+}
+
+model Marca {
+  id                 String      @id @default(uuid(7)) @db.Uuid
+  nombre             String
+  slug               String      @unique
+  dominioPropio      String?     @unique
+  estado             EstadoMarca @default(ACTIVA)
+  // Opcionales porque se suben después de crear la marca.
+  logoUrl            String?
+  portadaUrl         String?
+  textosBanner       String[]    @default([])
+  // Normalizado a 549 + característica + número.
+  whatsapp           String
+  direccionRetiro    String?
+  horariosRetiro     String?
+  redes              Json        @default("{}")
+  comoComprar        String      @default("")
+  condicionesVenta   String      @default("")
+  minimoCompra       Int         @default(0)
+  colores            String[]    @default([])
+  // TODO(decision): una sola lista de talles por marca; puede necesitar listas por categoría (ropa y calzado).
+  talles             String[]    @default([])
+  guiaTallesUrl      String?
+  ultimoNumeroPedido Int         @default(0)
+  creadoEn           DateTime    @default(now())
+
+  usuario         Usuario?
+  opcionesEntrega OpcionEntrega[]
+  productos       Producto[]
+  pedidos         Pedido[]
+}
+
+model OpcionEntrega {
+  id      String      @id @default(uuid(7)) @db.Uuid
+  marcaId String      @db.Uuid
+  nombre  String
+  tipo    TipoEntrega
+  orden   Int         @default(0)
+  // No se borran (los pedidos las referencian): se desactivan.
+  activa  Boolean     @default(true)
+
+  marca   Marca    @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  pedidos Pedido[]
+
+  @@index([marcaId])
+}
+
+// Global: la define Piter. Máximo 2 niveles (se valida en la API).
+model Categoria {
+  id      String  @id @default(uuid(7)) @db.Uuid
+  nombre  String
+  // Único global: la tienda filtra por ?categoria=<slug>.
+  slug    String  @unique
+  padreId String? @db.Uuid
+  orden   Int     @default(0)
+
+  padre         Categoria?  @relation("Subcategorias", fields: [padreId], references: [id], onDelete: Restrict)
+  subcategorias Categoria[] @relation("Subcategorias")
+  productos     Producto[]
+
+  @@index([padreId])
+}
+
+model Producto {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  marcaId     String   @db.Uuid
+  categoriaId String   @db.Uuid
+  nombre      String
+  descripcion String?
+  precio      Int
+  visible     Boolean  @default(true)
+  creadoEn    DateTime @default(now())
+
+  marca     Marca          @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  categoria Categoria      @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  fotos     FotoProducto[]
+  variantes Variante[]
+  items     ItemPedido[]
+
+  @@index([marcaId, visible, creadoEn])
+  @@index([marcaId, categoriaId])
+}
+
+// Máximo 10 por producto (se valida en la API).
+model FotoProducto {
+  id           String @id @default(uuid(7)) @db.Uuid
+  productoId   String @db.Uuid
+  url          String
+  urlMiniatura String
+  orden        Int
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@index([productoId, orden])
+}
+
+// Matriz color × talle: solo hay / agotado.
+model Variante {
+  id         String  @id @default(uuid(7)) @db.Uuid
+  productoId String  @db.Uuid
+  color      String
+  talle      String
+  disponible Boolean @default(true)
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@unique([productoId, color, talle])
+}
+
+model Pedido {
+  id                String       @id @default(uuid(7)) @db.Uuid
+  marcaId           String       @db.Uuid
+  // Correlativo por marca: sale de Marca.ultimoNumeroPedido en la misma transacción.
+  numero            Int
+  estado            EstadoPedido @default(NUEVO)
+  opcionEntregaId   String       @db.Uuid
+  tipoEntrega       TipoEntrega
+  compradorNombre   String
+  compradorTelefono String
+  compradorDni      String?
+  compradorCuit     String?
+  direccion         String?
+  localidad         String?
+  provincia         String?
+  transporte        String?
+  observaciones     String?
+  total             Int
+  creadoEn          DateTime     @default(now())
+
+  marca         Marca         @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  opcionEntrega OpcionEntrega @relation(fields: [opcionEntregaId], references: [id], onDelete: Restrict)
+  items         ItemPedido[]
+
+  @@unique([marcaId, numero])
+  @@index([marcaId, creadoEn])
+}
+
+// Copia del producto al momento del pedido: si el producto cambia o se
+// elimina, el pedido no se altera.
+model ItemPedido {
+  id             String  @id @default(uuid(7)) @db.Uuid
+  pedidoId       String  @db.Uuid
+  productoId     String? @db.Uuid
+  nombreProducto String
+  color          String
+  talle          String
+  cantidad       Int
+  precioUnitario Int
+
+  pedido   Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  producto Producto? @relation(fields: [productoId], references: [id], onDelete: SetNull)
+
+  @@index([pedidoId])
+  @@index([productoId])
+}
