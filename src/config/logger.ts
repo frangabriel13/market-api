@@ -2,8 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Params } from 'nestjs-pino';
 import type { Env } from './env.js';
 
-// Un log JSON por request (pino-http). Nunca se loguean bodies: los pedidos
-// traen teléfono, DNI y dirección del comprador.
+// Sin bodies: los pedidos traen datos personales del comprador.
 export function loggerConfig(config: ConfigService<Env, true>): Params {
   const nodeEnv = config.get('NODE_ENV', { infer: true });
   return {

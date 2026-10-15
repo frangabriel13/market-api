@@ -13,7 +13,6 @@ import {
   PASSWORD_DE_TEST,
 } from './utils/db.js';
 
-// Devuelve "refresh_token=<valor>" del Set-Cookie, o undefined.
 function cookieRefresh(res: request.Response): string | undefined {
   const cookies = ([] as string[]).concat(res.headers['set-cookie'] ?? []);
   return cookies.find((c) => c.startsWith('refresh_token='))?.split(';')[0];
@@ -132,7 +131,6 @@ describe('Auth (e2e)', () => {
       const nueva = cookieRefresh(res)!;
       expect(nueva).not.toBe(cookie);
 
-      // El refresh token viejo ya no sirve; el nuevo sí.
       await refresh(cookie).expect(401);
       await refresh(nueva).expect(200);
     });

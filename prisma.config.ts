@@ -8,8 +8,7 @@ export default defineConfig({
     seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    // `prisma generate` no necesita la base: así se puede generar el cliente
-    // sin DATABASE_URL (por ejemplo, al construir la imagen de Docker).
+    // Vacía al construir la imagen de Docker: `prisma generate` no la usa.
     url: process.env.DATABASE_URL ?? '',
   },
 });

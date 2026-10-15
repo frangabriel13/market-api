@@ -1,6 +1,3 @@
-// La URL de la base se configura en prisma.config.ts (DATABASE_URL).
-// Precios siempre en pesos enteros, sin IVA ni recargos.
-
 generator client {
   provider            = "prisma-client"
   output              = "../src/generated/prisma"
@@ -41,7 +38,6 @@ model Usuario {
   email        String  @unique
   passwordHash String
   rol          Rol
-  // Solo FABRICANTE. Único: una sola cuenta por marca.
   marcaId      String? @unique @db.Uuid
   activo       Boolean @default(true)
 
@@ -49,8 +45,6 @@ model Usuario {
   sesiones Sesion[]
 }
 
-// Una por dispositivo logueado. Guarda el hash (sha256) del refresh token,
-// nunca el token. Se rota en cada refresh y se borra en el logout.
 model Sesion {
   id        String   @id @default(uuid(7)) @db.Uuid
   usuarioId String   @db.Uuid
@@ -69,11 +63,9 @@ model Marca {
   slug               String      @unique
   dominioPropio      String?     @unique
   estado             EstadoMarca @default(ACTIVA)
-  // Opcionales porque se suben después de crear la marca.
   logoUrl            String?
   portadaUrl         String?
   textosBanner       String[]    @default([])
-  // Normalizado a 549 + característica + número.
   whatsapp           String
   direccionRetiro    String?
   horariosRetiro     String?
@@ -100,7 +92,6 @@ model OpcionEntrega {
   nombre  String
   tipo    TipoEntrega
   orden   Int         @default(0)
-  // No se borran (los pedidos las referencian): se desactivan.
   activa  Boolean     @default(true)
 
   marca   Marca    @relation(fields: [marcaId], references: [id], onDelete: Restrict)
@@ -109,11 +100,10 @@ model OpcionEntrega {
   @@index([marcaId])
 }
 
-// Global: la define Piter. Máximo 2 niveles (se valida en la API).
 model Categoria {
   id      String  @id @default(uuid(7)) @db.Uuid
   nombre  String
-  // Único global: la tienda filtra por ?categoria=<slug>.
+  // Único global (no por padre): la tienda filtra por ?categoria=<slug>.
   slug    String  @unique
   padreId String? @db.Uuid
   orden   Int     @default(0)
@@ -145,7 +135,6 @@ model Producto {
   @@index([marcaId, categoriaId])
 }
 
-// Máximo 10 por producto (se valida en la API).
 model FotoProducto {
   id           String @id @default(uuid(7)) @db.Uuid
   productoId   String @db.Uuid
@@ -158,7 +147,6 @@ model FotoProducto {
   @@index([productoId, orden])
 }
 
-// Matriz color × talle: solo hay / agotado.
 model Variante {
   id         String  @id @default(uuid(7)) @db.Uuid
   productoId String  @db.Uuid
@@ -174,7 +162,6 @@ model Variante {
 model Pedido {
   id                String       @id @default(uuid(7)) @db.Uuid
   marcaId           String       @db.Uuid
-  // Correlativo por marca: sale de Marca.ultimoNumeroPedido en la misma transacción.
   numero            Int
   estado            EstadoPedido @default(NUEVO)
   opcionEntregaId   String       @db.Uuid
@@ -199,8 +186,6 @@ model Pedido {
   @@index([marcaId, creadoEn])
 }
 
-// Copia del producto al momento del pedido: si el producto cambia o se
-// elimina, el pedido no se altera.
 model ItemPedido {
   id             String  @id @default(uuid(7)) @db.Uuid
   pedidoId       String  @db.Uuid
