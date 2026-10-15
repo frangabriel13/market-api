@@ -9,15 +9,13 @@ const minimas = {
 };
 
 const serviciosExternos = {
-  R2_ACCOUNT_ID: 'cuenta',
-  R2_ACCESS_KEY_ID: 'clave',
-  R2_SECRET_ACCESS_KEY: 'secreto',
-  R2_BUCKET: 'fotos',
-  R2_PUBLIC_URL: 'https://fotos.ejemplo.com.ar',
+  STORAGE_REGION: 'sa-east-1',
+  STORAGE_ACCESS_KEY_ID: 'clave',
+  STORAGE_SECRET_ACCESS_KEY: 'secreto',
+  STORAGE_BUCKET: 'fotos',
+  STORAGE_PUBLIC_URL: 'https://fotos.ejemplo.com.ar',
   RESEND_API_KEY: 're_123',
   EMAIL_FROM: 'Plataforma <no-responder@ejemplo.com.ar>',
-  TURNSTILE_SECRET_KEY: 'secreto',
-  SENTRY_DSN: 'https://abc@o1.ingest.sentry.io/1',
 };
 
 describe('validateEnv', () => {
@@ -50,14 +48,14 @@ describe('validateEnv', () => {
   });
 
   it('trata las variables vacías como no definidas', () => {
-    const env = validateEnv({ ...minimas, R2_BUCKET: '', SENTRY_DSN: '' });
-    expect(env.R2_BUCKET).toBeUndefined();
-    expect(env.SENTRY_DSN).toBeUndefined();
+    const env = validateEnv({ ...minimas, STORAGE_BUCKET: '', EMAIL_FROM: '' });
+    expect(env.STORAGE_BUCKET).toBeUndefined();
+    expect(env.EMAIL_FROM).toBeUndefined();
   });
 
   it('en producción exige los servicios externos', () => {
     expect(() => validateEnv({ ...minimas, NODE_ENV: 'production' })).toThrow(
-      /R2_BUCKET[\s\S]*SENTRY_DSN/,
+      /STORAGE_BUCKET[\s\S]*EMAIL_FROM/,
     );
   });
 

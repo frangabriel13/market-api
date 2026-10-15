@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  INestApplication,
   NotFoundException,
   Param,
   Post,
@@ -10,10 +9,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import type { App } from 'supertest/types.js';
-import { AppModule } from '../src/app.module.js';
 import type { JwtPayload } from '../src/auth/auth.constants.js';
 import {
   MarcaId,
@@ -22,12 +18,8 @@ import {
   UsuarioActual,
 } from '../src/auth/decorators.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import {
-  crearMarca,
-  crearUsuario,
-  limpiarBase,
-  PASSWORD_DE_TEST,
-} from './utils/db.js';
+import { cliente, crearApp, tokenDe, type AppDeTest } from './utils/app.js';
+import { crearMarca, crearUsuario, limpiarBase } from './utils/db.js';
 
 @Roles('ADMIN')
 @Controller('prueba-admin')
@@ -96,7 +88,7 @@ class PruebaSinRolesController {
 }
 
 describe('Permisos y aislamiento por marca (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: AppDeTest;
   let prisma: PrismaService;
   let jwt: JwtService;
   let secreto: string;
@@ -104,31 +96,15 @@ describe('Permisos y aislamiento por marca (e2e)', () => {
   let marcaB: string;
   let productoB: string;
 
-  const tokenDe = async (email: string) => {
-    const res = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email, password: PASSWORD_DE_TEST })
-      .expect(200);
-    return res.body.accessToken as string;
-  };
-
-  const get = (url: string, token?: string) => {
-    const req = request(app.getHttpServer()).get(url);
-    return token ? req.set('Authorization', `Bearer ${token}`) : req;
-  };
+  const get = (url: string, token?: string) => cliente(app, token).get(url);
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-      controllers: [
-        PruebaAdminController,
-        PruebaPanelController,
-        PruebaAmbosController,
-        PruebaSinRolesController,
-      ],
-    }).compile();
-    app = moduleRef.createNestApplication();
-    await app.init();
+    app = await crearApp([
+      PruebaAdminController,
+      PruebaPanelController,
+      PruebaAmbosController,
+      PruebaSinRolesController,
+    ]);
     prisma = app.get(PrismaService);
     jwt = app.get(JwtService);
     secreto = app.get(ConfigService).getOrThrow<string>('JWT_SECRET');
@@ -182,7 +158,7 @@ describe('Permisos y aislamiento por marca (e2e)', () => {
     });
 
     it('rechaza un header que no es Bearer', async () => {
-      const token = await tokenDe('admin@test.com');
+      const token = await tokenDe(app, 'admin@test.com');
       await request(app.getHttpServer())
         .get('/prueba-admin')
         .set('Authorization', token)
@@ -240,35 +216,40 @@ describe('Permisos y aislamiento por marca (e2e)', () => {
 
   describe('roles', () => {
     it('ADMIN entra a /admin y no al panel', async () => {
-      const token = await tokenDe('admin@test.com');
+      const token = await tokenDe(app, 'admin@test.com');
       const res = await get('/prueba-admin', token).expect(200);
       expect(res.body).toMatchObject({ rol: 'ADMIN', marcaId: null });
       await get('/prueba-panel/productos', token).expect(403);
     });
 
     it('FABRICANTE entra al panel y no a /admin', async () => {
-      const token = await tokenDe('a@test.com');
+      const token = await tokenDe(app, 'a@test.com');
       await get('/prueba-panel/productos', token).expect(200);
       await get('/prueba-admin', token).expect(403);
     });
 
     it('@Roles con varios roles deja pasar a cualquiera de ellos', async () => {
-      await get('/prueba-ambos', await tokenDe('admin@test.com')).expect(200);
-      await get('/prueba-ambos', await tokenDe('a@test.com')).expect(200);
+      await get('/prueba-ambos', await tokenDe(app, 'admin@test.com')).expect(
+        200,
+      );
+      await get('/prueba-ambos', await tokenDe(app, 'a@test.com')).expect(200);
     });
 
     it('una ruta sin @Publico ni @Roles queda cerrada para todos', async () => {
       await get('/prueba-sin-roles').expect(401);
-      await get('/prueba-sin-roles', await tokenDe('admin@test.com')).expect(
+      await get(
+        '/prueba-sin-roles',
+        await tokenDe(app, 'admin@test.com'),
+      ).expect(403);
+      await get('/prueba-sin-roles', await tokenDe(app, 'a@test.com')).expect(
         403,
       );
-      await get('/prueba-sin-roles', await tokenDe('a@test.com')).expect(403);
     });
   });
 
   describe('aislamiento por marca', () => {
     it('el marcaId sale del token aunque venga otro en la URL, la query o el body', async () => {
-      const token = await tokenDe('a@test.com');
+      const token = await tokenDe(app, 'a@test.com');
       const res = await request(app.getHttpServer())
         .post(`/prueba-panel/${marcaB}?marcaId=${marcaB}`)
         .set('Authorization', `Bearer ${token}`)
@@ -280,23 +261,23 @@ describe('Permisos y aislamiento por marca (e2e)', () => {
     it('cada fabricante ve solo los productos de su marca', async () => {
       const resA = await get(
         '/prueba-panel/productos',
-        await tokenDe('a@test.com'),
+        await tokenDe(app, 'a@test.com'),
       ).expect(200);
       expect(resA.body).toEqual([{ nombre: 'Producto A' }]);
 
       const resB = await get(
         '/prueba-panel/productos',
-        await tokenDe('b@test.com'),
+        await tokenDe(app, 'b@test.com'),
       ).expect(200);
       expect(resB.body).toEqual([{ nombre: 'Producto B' }]);
     });
 
     it('un fabricante no puede leer un producto de otra marca por id', async () => {
-      const token = await tokenDe('a@test.com');
+      const token = await tokenDe(app, 'a@test.com');
       await get(`/prueba-panel/productos/${productoB}`, token).expect(404);
       await get(
         `/prueba-panel/productos/${productoB}`,
-        await tokenDe('b@test.com'),
+        await tokenDe(app, 'b@test.com'),
       ).expect(200);
     });
   });
