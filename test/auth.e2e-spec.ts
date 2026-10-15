@@ -172,4 +172,54 @@ describe('Auth (e2e)', () => {
       await request(app.getHttpServer()).post('/auth/logout').expect(204);
     });
   });
+
+  describe('estado de la marca del fabricante', () => {
+    const cambiarEstado = (estado: 'ACTIVA' | 'PAUSADA' | 'BAJA') =>
+      prisma.marca.update({ where: { id: marcaId }, data: { estado } });
+
+    const refresh = (cookie: string) =>
+      request(app.getHttpServer()).post('/auth/refresh').set('Cookie', cookie);
+
+    it('con la marca dada de baja no puede iniciar sesión', async () => {
+      await cambiarEstado('BAJA');
+      const res = await login('fabricante@test.com').expect(401);
+      expect(res.body.message).toBe(
+        'Tu marca está dada de baja: no podés ingresar al panel.',
+      );
+      expect(cookieRefresh(res)).toBeUndefined();
+    });
+
+    it('con la contraseña incorrecta no revela que la marca está de baja', async () => {
+      await cambiarEstado('BAJA');
+      const res = await login('fabricante@test.com', 'otra').expect(401);
+      expect(res.body.message).toBe('Email o contraseña incorrectos');
+    });
+
+    it('con la marca dada de baja no puede renovar una sesión abierta', async () => {
+      const cookie = cookieRefresh(await login('fabricante@test.com'))!;
+      await cambiarEstado('BAJA');
+      const res = await refresh(cookie).expect(401);
+      expect(res.headers['set-cookie']?.[0]).toMatch(/^refresh_token=;/);
+    });
+
+    it('con la marca pausada puede entrar y renovar la sesión', async () => {
+      await cambiarEstado('PAUSADA');
+      const cookie = cookieRefresh(
+        await login('fabricante@test.com').expect(200),
+      )!;
+      await refresh(cookie).expect(200);
+    });
+
+    it('si la marca se reactiva puede volver a entrar', async () => {
+      await cambiarEstado('BAJA');
+      await login('fabricante@test.com').expect(401);
+      await cambiarEstado('ACTIVA');
+      await login('fabricante@test.com').expect(200);
+    });
+
+    it('al admin no le afecta el estado de ninguna marca', async () => {
+      await cambiarEstado('BAJA');
+      await login('admin@test.com').expect(200);
+    });
+  });
 });
