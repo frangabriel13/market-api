@@ -1,5 +1,3 @@
-// Prepara la base de los e2e: la crea si no existe y le aplica las
-// migraciones. Nunca toca la base de desarrollo.
 import { execSync } from 'node:child_process';
 import pg from 'pg';
 import { urlBaseDeTest } from './url-base-de-test.js';

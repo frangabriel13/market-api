@@ -1,15 +1,10 @@
 import { z } from 'zod';
+import { optionalEnv } from './optional-env.js';
 
-// En el .env, `VAR=` llega como string vacío: lo tratamos como no definida.
-const vacioComoIndefinido = (valor: unknown) =>
-  valor === '' ? undefined : valor;
+const texto = optionalEnv(z.string());
+const url = optionalEnv(z.url());
 
-const texto = z.preprocess(vacioComoIndefinido, z.string().min(1).optional());
-const url = z.preprocess(vacioComoIndefinido, z.url().optional());
-
-// Servicios externos: opcionales en desarrollo y tests (las cuentas todavía
-// pueden no existir), obligatorios en producción.
-const SERVICIOS_EXTERNOS = [
+const SERVICIOS_OBLIGATORIOS_EN_PRODUCCION = [
   'R2_ACCOUNT_ID',
   'R2_ACCESS_KEY_ID',
   'R2_SECRET_ACCESS_KEY',
@@ -59,14 +54,13 @@ export const envSchema = z
 
     SENTRY_DSN: url,
 
-    // Dominios propios. Opcionales siempre: la función se puede postergar.
     VERCEL_TOKEN: texto,
     VERCEL_PROJECT_ID: texto,
     VERCEL_TEAM_ID: texto,
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'production') {
-      for (const clave of SERVICIOS_EXTERNOS) {
+      for (const clave of SERVICIOS_OBLIGATORIOS_EN_PRODUCCION) {
         if (env[clave] === undefined) {
           ctx.addIssue({
             code: 'custom',

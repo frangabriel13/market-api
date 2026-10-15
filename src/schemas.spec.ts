@@ -1,5 +1,3 @@
-// Los tests de src/schemas viven acá y no adentro de la carpeta: esa carpeta
-// se copia tal cual al front y solo puede importar zod.
 import { EstadoPedido, Rol } from './generated/prisma/enums.js';
 import { loginSchema } from './schemas/auth.js';
 import { ESTADOS_PEDIDO, ETIQUETAS_ESTADO_PEDIDO } from './schemas/pedidos.js';

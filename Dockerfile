@@ -1,8 +1,3 @@
-# API en producción (Railway o Render).
-#   docker build -t api .
-#   docker run --env-file .env -p 4000:4000 api
-# Al arrancar aplica las migraciones pendientes y después levanta la API.
-
 FROM node:24-slim AS base
 # Prisma necesita openssl para el motor de migraciones.
 RUN apt-get update \
@@ -11,13 +6,11 @@ RUN apt-get update \
 RUN corepack enable
 WORKDIR /app
 
-# --- Dependencias de producción ---
 FROM base AS deps-prod
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml prisma.config.ts ./
 COPY prisma ./prisma
 RUN pnpm install --frozen-lockfile --prod
 
-# --- Build ---
 FROM base AS build
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml prisma.config.ts ./
 COPY prisma ./prisma
@@ -26,7 +19,6 @@ COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
 RUN pnpm build
 
-# --- Imagen final ---
 FROM base
 ENV NODE_ENV=production
 ENV PORT=4000

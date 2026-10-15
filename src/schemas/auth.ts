@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+// La API y el front tienen que usar el mismo nombre.
+export const REFRESH_COOKIE = 'refresh_token';
+
 export const loginSchema = z.object({
   email: z
     .string()
@@ -12,8 +15,6 @@ export const loginSchema = z.object({
 export type LoginInput = z.input<typeof loginSchema>;
 export type Login = z.output<typeof loginSchema>;
 
-// Respuesta de POST /auth/login y /auth/refresh. El refresh token viaja
-// aparte, en una cookie httpOnly.
 export const sesionSchema = z.object({
   accessToken: z.string(),
   usuario: z.object({

@@ -1,7 +1,6 @@
 import { hashPassword } from '../../src/common/password.js';
 import type { PrismaService } from '../../src/prisma/prisma.service.js';
 
-// Vacía todas las tablas (menos la de migraciones). Solo en una base *_test.
 export async function limpiarBase(prisma: PrismaService) {
   const [{ base }] = await prisma.$queryRaw<{ base: string }[]>`
     SELECT current_database() AS base`;

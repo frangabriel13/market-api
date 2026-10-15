@@ -17,8 +17,6 @@ export class PrismaService
     });
   }
 
-  // Conecta al arrancar para que una base caída falle enseguida y no en el
-  // primer request.
   async onModuleInit() {
     await this.$connect();
   }

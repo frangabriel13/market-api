@@ -19,11 +19,6 @@ const payloadSchema = z.object({
   marcaId: z.string().nullable(),
 });
 
-// Guard global (APP_GUARD). Para cada ruta:
-//   - @Publico(): pasa sin token.
-//   - Si no, exige un access token válido y que su rol esté en @Roles(...).
-//     Sin @Roles, 403.
-//   - Un FABRICANTE sin marcaId en el token nunca pasa.
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(

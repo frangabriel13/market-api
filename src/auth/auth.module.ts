@@ -24,7 +24,6 @@ import { AuthService } from './auth.service.js';
   exports: [JwtModule],
 })
 export class AuthModule implements NestModule {
-  // Solo /auth lee cookies (el refresh token).
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(cookieParser()).forRoutes(AuthController);
   }

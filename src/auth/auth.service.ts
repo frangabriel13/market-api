@@ -25,8 +25,8 @@ function hashToken(token: string): string {
 
 @Injectable()
 export class AuthService {
-  // Hash contra el que se compara cuando el email no existe, para que la
-  // respuesta tarde lo mismo y no revele qué emails tienen cuenta.
+  // Si el email no existe se verifica contra este hash, para que la respuesta
+  // tarde lo mismo y no revele qué emails tienen cuenta.
   private readonly hashFalso = hashPassword(randomBytes(16).toString('hex'));
 
   constructor(
@@ -46,7 +46,6 @@ export class AuthService {
     return this.crearSesion(usuario);
   }
 
-  // Rota el refresh token: borra la sesión usada y crea una nueva.
   async refresh(refreshToken: string | undefined): Promise<ResultadoAuth> {
     if (!refreshToken) throw new UnauthorizedException(SESION_INVALIDA);
 

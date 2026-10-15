@@ -1,16 +1,11 @@
-// Seed: `pnpm prisma db seed`. Se puede correr varias veces: lo que ya
-// existe no se toca.
-//   - Siempre: categorías de ejemplo y el usuario ADMIN (Piter).
-//   - Fuera de producción: una marca de prueba con su fabricante.
+// Idempotente: lo que ya existe no se toca.
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { z } from 'zod';
 import { hashPassword } from '../src/common/password.js';
+import { slugify } from '../src/common/slugify.js';
+import { optionalEnv } from '../src/config/optional-env.js';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-
-// En el .env, `VAR=` llega como string vacío: lo tratamos como no definida.
-const opcional = <T extends z.ZodType>(schema: T) =>
-  z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
 
 const env = z
   .object({
@@ -20,8 +15,8 @@ const env = z
     DATABASE_URL: z.string().min(1),
     SEED_ADMIN_EMAIL: z.email(),
     SEED_ADMIN_PASSWORD: z.string().min(12),
-    SEED_FABRICANTE_EMAIL: opcional(z.email()),
-    SEED_FABRICANTE_PASSWORD: opcional(z.string().min(12)),
+    SEED_FABRICANTE_EMAIL: optionalEnv(z.email()),
+    SEED_FABRICANTE_PASSWORD: optionalEnv(z.string().min(12)),
   })
   .parse(process.env);
 
@@ -39,15 +34,6 @@ const CATEGORIAS: { nombre: string; subcategorias: string[] }[] = [
     subcategorias: ['Corpiños', 'Bombachas', 'Bóxers'],
   },
 ];
-
-function slugify(texto: string): string {
-  return texto
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
 
 async function seedCategorias() {
   for (const [i, categoria] of CATEGORIAS.entries()) {

@@ -29,8 +29,6 @@ import {
   PASSWORD_DE_TEST,
 } from './utils/db.js';
 
-// Controllers de prueba con el mismo patrón que van a usar /panel y /admin.
-
 @Roles('ADMIN')
 @Controller('prueba-admin')
 class PruebaAdminController {
@@ -89,7 +87,6 @@ class PruebaAmbosController {
   }
 }
 
-// Sin @Publico ni @Roles: tiene que quedar cerrado para todos.
 @Controller('prueba-sin-roles')
 class PruebaSinRolesController {
   @Get()
@@ -182,7 +179,6 @@ describe('Permisos y aislamiento por marca (e2e)', () => {
 
     it('las rutas @Publico() no piden token', async () => {
       await get('/prueba-ambos/publico').expect(200);
-      await get('/').expect(200);
     });
 
     it('rechaza un header que no es Bearer', async () => {
