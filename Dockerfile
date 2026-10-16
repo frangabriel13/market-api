@@ -28,4 +28,7 @@ COPY --chown=node:node package.json prisma.config.ts ./
 COPY --chown=node:node prisma ./prisma
 USER node
 EXPOSE 4000
-CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && exec node dist/main.js"]
+# Las migraciones no se aplican acá: desde Fly.io el motor de migraciones de
+# Prisma no logra conectarse a Supabase (P1001), aunque la API sí. Se aplican
+# desde la máquina local antes del deploy (ver CLAUDE.md).
+CMD ["node", "dist/main.js"]
