@@ -37,3 +37,16 @@ export async function crearUsuario(
     },
   });
 }
+
+export async function crearCategoria(prisma: PrismaService, slug: string) {
+  return prisma.categoria.create({ data: { nombre: slug, slug } });
+}
+
+export async function crearProducto(
+  prisma: PrismaService,
+  datos: { marcaId: string; categoriaId: string; nombre?: string },
+) {
+  return prisma.producto.create({
+    data: { nombre: 'Remera', precio: 1000, ...datos },
+  });
+}

@@ -3,6 +3,7 @@ import { emailSchema } from './auth.ts';
 import { archivoImagenSchema } from './imagenes.ts';
 import { slugSchema } from './slug.ts';
 import { telefonoSchema } from './telefono.ts';
+import { textoOpcional } from './texto.ts';
 
 export const ESTADOS_MARCA = ['ACTIVA', 'PAUSADA', 'BAJA'] as const;
 
@@ -15,14 +16,6 @@ const SLUGS_RESERVADOS = ['www', 'api', 'admin', 'panel'];
 
 const vacioComoIndefinido = (valor: unknown) =>
   valor === '' ? undefined : valor;
-
-const textoOpcional = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .transform((valor) => valor || null)
-    .nullable();
 
 const link = z.preprocess(
   vacioComoIndefinido,
@@ -121,4 +114,11 @@ export interface Marca extends MarcaResumen {
   colores: string[];
   talles: string[];
   usuario: { email: string; activo: boolean } | null;
+}
+
+// Lo que ve el fabricante de su marca (GET /panel/marca), solo lectura.
+export interface MarcaPanel extends MarcaResumen {
+  logoUrl: string | null;
+  colores: string[];
+  talles: string[];
 }

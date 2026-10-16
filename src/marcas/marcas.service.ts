@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -18,9 +17,11 @@ import type {
   MarcaCrear,
   MarcaEditar,
   MarcaEstado,
+  MarcaPanel,
   MarcaResumen,
   Redes,
 } from '../schemas/marcas.js';
+import { carpetaDeMarca } from '../storage/carpetas.js';
 import { StorageService } from '../storage/storage.service.js';
 
 const RESUMEN = {
@@ -59,13 +60,18 @@ const DETALLE = {
 
 type FilaDetalle = Prisma.MarcaGetPayload<{ select: typeof DETALLE }>;
 
+const PANEL = {
+  ...RESUMEN,
+  logoUrl: true,
+  colores: true,
+  talles: true,
+} satisfies Prisma.MarcaSelect;
+
 const SLUG_EN_USO = 'Ya existe una marca con ese slug';
 const NO_ENCONTRADA = 'Marca no encontrada';
 
 @Injectable()
 export class MarcasService {
-  private readonly logger = new Logger(MarcasService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -85,6 +91,15 @@ export class MarcasService {
     });
     if (!marca) throw new NotFoundException(NO_ENCONTRADA);
     return aMarca(marca);
+  }
+
+  async obtenerParaPanel(id: string): Promise<MarcaPanel> {
+    const marca = await this.prisma.marca.findUnique({
+      where: { id },
+      select: PANEL,
+    });
+    if (!marca) throw new NotFoundException(NO_ENCONTRADA);
+    return marca;
   }
 
   async asegurarExistencia(id: string): Promise<void> {
@@ -120,7 +135,7 @@ export class MarcasService {
     { tipo, ...archivo }: ImagenMarca,
   ): Promise<UrlDeSubida> {
     await this.asegurarExistencia(id);
-    return this.storage.crearUrlDeSubida(carpeta(id), tipo, archivo);
+    return this.storage.crearUrlDeSubida(carpetaDeMarca(id), tipo, archivo);
   }
 
   private async actualizar(
@@ -137,38 +152,24 @@ export class MarcasService {
     const urls = CAMPOS_IMAGEN.map((campo) => datos[campo]).filter(
       (url): url is string => !!url,
     );
-    if (urls.some((url) => !this.storage.esUrlDeCarpeta(url, carpeta(id)))) {
+    const carpeta = carpetaDeMarca(id);
+    if (urls.some((url) => !this.storage.esUrlDeCarpeta(url, carpeta))) {
       throw new BadRequestException('La imagen no se subió a esta marca');
     }
   }
 
-  // Si falla, la marca ya quedó guardada: solo queda un archivo sin usar.
-  private async borrarReemplazadas(
-    id: string,
-    anteriores: Imagenes,
-    actual: Marca,
-  ) {
+  private borrarReemplazadas(id: string, anteriores: Imagenes, actual: Marca) {
     const reemplazadas = CAMPOS_IMAGEN.flatMap((campo) => {
       const url = anteriores[campo];
       const reemplazada =
         url &&
         url !== actual[campo] &&
-        this.storage.esUrlDeCarpeta(url, carpeta(id));
+        this.storage.esUrlDeCarpeta(url, carpetaDeMarca(id));
       return reemplazada ? [url] : [];
     });
-
-    const resultados = await Promise.allSettled(
-      reemplazadas.map((url) => this.storage.borrar(url)),
-    );
-    for (const resultado of resultados) {
-      if (resultado.status === 'rejected') {
-        this.logger.error(resultado.reason, 'No se pudo borrar una imagen');
-      }
-    }
+    return this.storage.borrarVarias(reemplazadas);
   }
 }
-
-const carpeta = (id: string) => `marcas/${id}`;
 
 function traducirError(error: unknown): never {
   if (esConflictoDeUnicidad(error)) throw new ConflictException(SLUG_EN_USO);

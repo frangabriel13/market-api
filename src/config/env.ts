@@ -51,8 +51,6 @@ export const envSchema = z
     RESEND_API_KEY: texto,
     EMAIL_FROM: texto,
 
-
-
     VERCEL_TOKEN: texto,
     VERCEL_PROJECT_ID: texto,
     VERCEL_TEAM_ID: texto,

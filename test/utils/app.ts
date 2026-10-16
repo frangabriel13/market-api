@@ -39,3 +39,22 @@ export function cliente(app: AppDeTest, token?: string) {
     delete: (url: string) => conToken(request(servidor).delete(url)),
   };
 }
+
+export type Metodo = 'get' | 'post' | 'patch' | 'put' | 'delete';
+
+interface CapaExpress {
+  route?: { path: string; methods: Partial<Record<Metodo, boolean>> };
+}
+
+// Rutas que Nest registró de verdad, como "GET /panel/productos/:id".
+export function rutasRegistradas(app: AppDeTest, prefijo: string): string[] {
+  const express = app.getHttpAdapter().getInstance();
+  const capas: CapaExpress[] = express.router.stack;
+  return capas.flatMap(({ route }) =>
+    route?.path.startsWith(prefijo)
+      ? Object.keys(route.methods).map(
+          (metodo) => `${metodo.toUpperCase()} ${route.path}`,
+        )
+      : [],
+  );
+}

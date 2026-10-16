@@ -1,5 +1,12 @@
-import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  NoSuchKey,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { ServiceUnavailableException } from '@nestjs/common';
+import type { MockInstance } from 'vitest';
 import { ConfigService } from '@nestjs/config';
 import { StorageService } from './storage.service.js';
 
@@ -91,10 +98,16 @@ describe('StorageService', () => {
     ).toBe(false);
   });
 
-  describe('borrar', () => {
-    const send = vi.spyOn(S3Client.prototype, 'send');
+  describe('archivos en el bucket', () => {
+    let send: MockInstance<S3Client['send']>;
 
-    beforeEach(() => send.mockReset().mockResolvedValue({} as never));
+    beforeEach(() => {
+      send = vi
+        .spyOn(S3Client.prototype, 'send')
+        .mockResolvedValue({} as never);
+    });
+
+    afterEach(() => send.mockRestore());
 
     it('borra el archivo del bucket a partir de su URL pública', async () => {
       await storage(SUPABASE).borrar(
@@ -116,6 +129,55 @@ describe('StorageService', () => {
     it('sin almacenamiento configurado no hace nada', async () => {
       await storage({}).borrar('https://fotos.ejemplo.com.ar/marcas/abc/a.png');
       expect(send).not.toHaveBeenCalled();
+    });
+
+    it('sube un archivo con nombre nuevo y devuelve su URL pública', async () => {
+      const contenido = Buffer.from('imagen');
+      const url = await storage(SUPABASE).subir(
+        'marcas/abc/productos/p1',
+        'miniatura',
+        contenido,
+        'image/webp',
+      );
+      const [comando] = send.mock.calls[0];
+      expect(comando).toBeInstanceOf(PutObjectCommand);
+      expect(comando.input).toMatchObject({
+        Bucket: 'fotos',
+        Body: contenido,
+        ContentType: 'image/webp',
+      });
+      expect(url).toBe(
+        `https://fotos.ejemplo.com.ar/${(comando.input as { Key: string }).Key}`,
+      );
+      expect(url).toMatch(
+        /\/marcas\/abc\/productos\/p1\/miniatura-[\w-]+\.webp$/,
+      );
+    });
+
+    it('descarga un archivo del bucket', async () => {
+      send.mockResolvedValue({
+        Body: { transformToByteArray: async () => new Uint8Array([1, 2, 3]) },
+      } as never);
+      const contenido = await storage(SUPABASE).descargar(
+        'https://fotos.ejemplo.com.ar/marcas/abc/foto.webp',
+      );
+      expect(send.mock.calls[0][0]).toBeInstanceOf(GetObjectCommand);
+      expect(send.mock.calls[0][0].input).toEqual({
+        Bucket: 'fotos',
+        Key: 'marcas/abc/foto.webp',
+      });
+      expect(contenido).toEqual(Buffer.from([1, 2, 3]));
+    });
+
+    it('descargar devuelve null si el archivo no existe o la URL es de afuera', async () => {
+      send.mockRejectedValue(
+        new NoSuchKey({ message: 'no existe', $metadata: {} }),
+      );
+      const s = storage(SUPABASE);
+      expect(
+        await s.descargar('https://fotos.ejemplo.com.ar/marcas/abc/nada.webp'),
+      ).toBeNull();
+      expect(await s.descargar('https://otro.com/foto.webp')).toBeNull();
     });
   });
 });
