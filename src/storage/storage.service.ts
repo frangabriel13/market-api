@@ -1,11 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.js';
 import type { ArchivoImagen, UrlDeSubida } from '../schemas/imagenes.js';
@@ -18,6 +23,13 @@ const EXTENSIONES: Record<ArchivoImagen['contentType'], string> = {
 
 const VIGENCIA_SEGUNDOS = 5 * 60;
 
+// Cada archivo lleva un nombre nuevo: el CDN cachea y nunca se pisa uno existente.
+const nuevaClave = (
+  carpeta: string,
+  nombre: string,
+  contentType: ArchivoImagen['contentType'],
+) => `${carpeta}/${nombre}-${randomUUID()}.${EXTENSIONES[contentType]}`;
+
 interface Almacenamiento {
   cliente: S3Client;
   bucket: string;
@@ -26,6 +38,7 @@ interface Almacenamiento {
 
 @Injectable()
 export class StorageService {
+  private readonly logger = new Logger(StorageService.name);
   private readonly almacenamiento: Almacenamiento | null;
 
   // Cualquier almacenamiento compatible con S3. Con STORAGE_ENDPOINT (Supabase
@@ -66,7 +79,7 @@ export class StorageService {
     { contentType, tamanio }: ArchivoImagen,
   ): Promise<UrlDeSubida> {
     const almacenamiento = this.configurado();
-    const clave = `${carpeta}/${nombre}-${randomUUID()}.${EXTENSIONES[contentType]}`;
+    const clave = nuevaClave(carpeta, nombre, contentType);
     const uploadUrl = await getSignedUrl(
       almacenamiento.cliente,
       new PutObjectCommand({
@@ -83,15 +96,63 @@ export class StorageService {
     return { uploadUrl, url: `${almacenamiento.urlPublica}/${clave}` };
   }
 
+  async subir(
+    carpeta: string,
+    nombre: string,
+    contenido: Buffer,
+    contentType: ArchivoImagen['contentType'],
+  ): Promise<string> {
+    const almacenamiento = this.configurado();
+    const clave = nuevaClave(carpeta, nombre, contentType);
+    await almacenamiento.cliente.send(
+      new PutObjectCommand({
+        Bucket: almacenamiento.bucket,
+        Key: clave,
+        Body: contenido,
+        ContentType: contentType,
+      }),
+    );
+    return `${almacenamiento.urlPublica}/${clave}`;
+  }
+
+  // null si la URL no es del bucket o el archivo no existe.
+  async descargar(url: string): Promise<Buffer | null> {
+    const almacenamiento = this.configurado();
+    const clave = this.claveDe(url);
+    if (!clave) return null;
+    try {
+      const { Body } = await almacenamiento.cliente.send(
+        new GetObjectCommand({ Bucket: almacenamiento.bucket, Key: clave }),
+      );
+      return Body ? Buffer.from(await Body.transformToByteArray()) : null;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'NoSuchKey') return null;
+      throw error;
+    }
+  }
+
   async borrar(url: string): Promise<void> {
-    const prefijo = `${this.almacenamiento?.urlPublica}/`;
-    if (!this.almacenamiento || !url.startsWith(prefijo)) return;
+    const clave = this.claveDe(url);
+    if (!this.almacenamiento || !clave) return;
     await this.almacenamiento.cliente.send(
       new DeleteObjectCommand({
         Bucket: this.almacenamiento.bucket,
-        Key: url.slice(prefijo.length),
+        Key: clave,
       }),
     );
+  }
+
+  // Para archivos que dejaron de usarse después de guardar un cambio: si el
+  // borrado falla, solo queda un archivo sin usar, así que se loguea y sigue.
+  async borrarVarias(urls: string[]): Promise<void> {
+    const resultados = await Promise.allSettled(
+      urls.map((url) => this.borrar(url)),
+    );
+    for (const resultado of resultados) {
+      if (resultado.status === 'rejected') {
+        this.logger.error(resultado.reason, 'No se pudo borrar un archivo');
+      }
+    }
   }
 
   esUrlDeCarpeta(url: string, carpeta: string): boolean {
@@ -99,6 +160,13 @@ export class StorageService {
       !!this.almacenamiento &&
       url.startsWith(`${this.almacenamiento.urlPublica}/${carpeta}/`)
     );
+  }
+
+  private claveDe(url: string): string | null {
+    const prefijo = `${this.almacenamiento?.urlPublica}/`;
+    return this.almacenamiento && url.startsWith(prefijo)
+      ? url.slice(prefijo.length)
+      : null;
   }
 
   private configurado(): Almacenamiento {
