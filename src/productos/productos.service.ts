@@ -16,14 +16,13 @@ import type {
 } from '../schemas/productos.js';
 import { carpetaDeMarca } from '../storage/carpetas.js';
 import { StorageService } from '../storage/storage.service.js';
-import { errorDeListas, variantesVigentes } from './variantes.js';
+import {
+  errorDeListas,
+  LISTAS_DE_MARCA,
+  variantesVigentes,
+} from './variantes.js';
 
 const CATEGORIA = { select: { id: true, nombre: true } };
-
-const LISTAS_DE_MARCA = {
-  colores: true,
-  talles: true,
-} satisfies Prisma.MarcaSelect;
 
 const RESUMEN = {
   id: true,

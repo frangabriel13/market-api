@@ -17,6 +17,7 @@ import {
   normalizarTelefono,
   telefonoSchema,
 } from './schemas/telefono.js';
+import { identificarTienda } from './schemas/tienda.js';
 
 describe('constantes sincronizadas con los enums de Prisma', () => {
   it('roles', () => {
@@ -121,5 +122,27 @@ describe('telefonoSchema', () => {
     expect(resultado.error?.issues[0].message).toBe(
       'Ingresá un teléfono con característica (ej. 11 5555-5555)',
     );
+  });
+});
+
+describe('identificarTienda', () => {
+  it.each([
+    ['mi-marca.plataforma.com', { slug: 'mi-marca' }],
+    ['Mi-Marca.Plataforma.com', { slug: 'mi-marca' }],
+    ['mi-marca.plataforma.com:3000', { slug: 'mi-marca' }],
+    ['tienda.com.ar', { dominioPropio: 'tienda.com.ar' }],
+    ['www.tienda.com.ar:443', { dominioPropio: 'www.tienda.com.ar' }],
+    ['plataforma.com', null],
+    ['plataforma.com:3000', null],
+    ['a.b.plataforma.com', null],
+    ['', null],
+  ])('%s → %o', (host, esperado) => {
+    expect(identificarTienda(host, 'plataforma.com')).toEqual(esperado);
+  });
+
+  it('ignora el puerto del dominio de la plataforma', () => {
+    expect(identificarTienda('mi-marca.localhost', 'localhost:3000')).toEqual({
+      slug: 'mi-marca',
+    });
   });
 });

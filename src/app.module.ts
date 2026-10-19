@@ -11,6 +11,7 @@ import { MarcasModule } from './marcas/marcas.module.js';
 import { OpcionesEntregaModule } from './opciones-entrega/opciones-entrega.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProductosModule } from './productos/productos.module.js';
+import { TiendaModule } from './tienda/tienda.module.js';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ProductosModule } from './productos/productos.module.js';
     OpcionesEntregaModule,
     CategoriasModule,
     ProductosModule,
+    TiendaModule,
   ],
   providers: [{ provide: APP_PIPE, useClass: ZodValidationPipe }],
 })

@@ -1,4 +1,10 @@
+import type { Prisma } from '../generated/prisma/client.js';
 import type { VarianteProducto } from '../schemas/productos.js';
+
+export const LISTAS_DE_MARCA = {
+  colores: true,
+  talles: true,
+} satisfies Prisma.MarcaSelect;
 
 export interface ListasDeMarca {
   colores: string[];
@@ -16,18 +22,29 @@ export function errorDeListas(
   return null;
 }
 
+const esVigente = (v: VarianteProducto, { colores, talles }: ListasDeMarca) =>
+  colores.includes(v.color) && talles.includes(v.talle);
+
 // Si Piter quita un color o un talle de la marca, sus variantes no se borran:
 // dejan de mostrarse y vuelven si lo agrega de nuevo. Salen en el orden de las
 // listas de la marca.
 export function variantesVigentes(
   variantes: VarianteProducto[],
-  { colores, talles }: ListasDeMarca,
+  listas: ListasDeMarca,
 ): VarianteProducto[] {
+  const { colores, talles } = listas;
   return variantes
-    .filter((v) => colores.includes(v.color) && talles.includes(v.talle))
+    .filter((v) => esVigente(v, listas))
     .sort(
       (a, b) =>
         colores.indexOf(a.color) - colores.indexOf(b.color) ||
         talles.indexOf(a.talle) - talles.indexOf(b.talle),
     );
 }
+
+// Agotado: ninguna combinación vigente está disponible (también si no tiene
+// ninguna).
+export const estaAgotado = (
+  variantes: VarianteProducto[],
+  listas: ListasDeMarca,
+) => !variantes.some((v) => v.disponible && esVigente(v, listas));
