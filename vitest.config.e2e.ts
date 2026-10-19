@@ -10,6 +10,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: urlBaseDeTest(),
       NODE_ENV: 'test',
+      PLATFORM_DOMAIN: 'plataforma.test',
       // Todas explícitas: si no, se cuelan las del .env de desarrollo.
       STORAGE_ENDPOINT: 'https://almacenamiento.test/storage/v1/s3',
       STORAGE_REGION: 'sa-east-1',

@@ -14,6 +14,7 @@ import type {
   CategoriaCrear,
   CategoriaEditar,
 } from '../schemas/categorias.js';
+import type { CategoriaTienda } from '../schemas/tienda.js';
 
 const CAMPOS = {
   id: true,
@@ -41,6 +42,29 @@ export class CategoriasService {
       select: {
         ...CAMPOS,
         subcategorias: { select: CAMPOS, orderBy: ORDEN },
+      },
+      orderBy: ORDEN,
+    });
+  }
+
+  // Una categoría aparece si tiene productos visibles de la marca o si los
+  // tiene alguna de sus subcategorías.
+  listarDeTienda(marcaId: string): Promise<CategoriaTienda[]> {
+    const conProductos = {
+      productos: { some: { marcaId, visible: true } },
+    } satisfies Prisma.CategoriaWhereInput;
+    const campos = {
+      nombre: true,
+      slug: true,
+    } satisfies Prisma.CategoriaSelect;
+    return this.prisma.categoria.findMany({
+      where: {
+        padreId: null,
+        OR: [conProductos, { subcategorias: { some: conProductos } }],
+      },
+      select: {
+        ...campos,
+        subcategorias: { where: conProductos, select: campos, orderBy: ORDEN },
       },
       orderBy: ORDEN,
     });

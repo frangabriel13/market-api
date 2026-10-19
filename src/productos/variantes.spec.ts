@@ -1,4 +1,4 @@
-import { errorDeListas, variantesVigentes } from './variantes.js';
+import { errorDeListas, estaAgotado, variantesVigentes } from './variantes.js';
 
 const LISTAS = { colores: ['Negro', 'Blanco'], talles: ['S', 'M', 'L'] };
 
@@ -50,5 +50,23 @@ describe('variantesVigentes', () => {
   it('oculta las de colores o talles que ya no están en la marca', () => {
     const variantes = [v('Negro', 'S'), v('Rojo', 'S'), v('Negro', 'XL')];
     expect(variantesVigentes(variantes, LISTAS)).toEqual([v('Negro', 'S')]);
+  });
+});
+
+describe('estaAgotado', () => {
+  it('no, si hay una combinación vigente disponible', () => {
+    expect(estaAgotado([v('Negro', 'S', false), v('Negro', 'M')], LISTAS)).toBe(
+      false,
+    );
+  });
+
+  it('sí, si solo están disponibles combinaciones que ya no son de la marca', () => {
+    expect(estaAgotado([v('Negro', 'S', false), v('Rojo', 'S')], LISTAS)).toBe(
+      true,
+    );
+  });
+
+  it('sí, si no tiene combinaciones', () => {
+    expect(estaAgotado([], LISTAS)).toBe(true);
   });
 });
