@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client.js';
+import { LegalesService } from '../legales/legales.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { Redes } from '../schemas/marcas.js';
 import type { MarcaTienda } from '../schemas/tienda.js';
@@ -27,13 +28,19 @@ const CONFIGURACION = {
 
 @Injectable()
 export class TiendaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly legales: LegalesService,
+  ) {}
 
   async configuracion(marcaId: string): Promise<MarcaTienda> {
-    const marca = await this.prisma.marca.findUniqueOrThrow({
-      where: { id: marcaId },
-      select: CONFIGURACION,
-    });
-    return { ...marca, redes: marca.redes as Redes };
+    const [marca, textosLegales] = await Promise.all([
+      this.prisma.marca.findUniqueOrThrow({
+        where: { id: marcaId },
+        select: CONFIGURACION,
+      }),
+      this.legales.publicados(),
+    ]);
+    return { ...marca, redes: marca.redes as Redes, textosLegales };
   }
 }

@@ -69,6 +69,7 @@ describe('Tienda: resolución de la marca y GET /tienda (e2e)', () => {
         { id: expect.any(String), nombre: 'Retiro en fábrica', tipo: 'RETIRO' },
         { id: expect.any(String), nombre: 'Expreso', tipo: 'ENVIO' },
       ],
+      textosLegales: [],
     });
   });
 

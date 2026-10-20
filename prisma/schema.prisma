@@ -33,6 +33,11 @@ enum EstadoPedido {
   CANCELADO
 }
 
+enum TipoTextoLegal {
+  TERMINOS
+  PRIVACIDAD
+}
+
 model Usuario {
   id           String  @id @default(uuid(7)) @db.Uuid
   email        String  @unique
@@ -214,4 +219,11 @@ model ItemPedido {
 
   @@index([pedidoId])
   @@index([productoId])
+}
+
+// De la plataforma: los mismos en todas las tiendas.
+model TextoLegal {
+  tipo          TipoTextoLegal @id
+  contenido     String
+  actualizadoEn DateTime       @updatedAt
 }

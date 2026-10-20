@@ -7,6 +7,7 @@ import { CategoriasModule } from './categorias/categorias.module.js';
 import { ZodValidationPipe } from './common/zod-validation.pipe.js';
 import { validateEnv } from './config/env.js';
 import { loggerConfig } from './config/logger.js';
+import { LegalesModule } from './legales/legales.module.js';
 import { MarcasModule } from './marcas/marcas.module.js';
 import { OpcionesEntregaModule } from './opciones-entrega/opciones-entrega.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -27,6 +28,7 @@ import { TiendaModule } from './tienda/tienda.module.js';
     CategoriasModule,
     ProductosModule,
     TiendaModule,
+    LegalesModule,
   ],
   providers: [{ provide: APP_PIPE, useClass: ZodValidationPipe }],
 })
