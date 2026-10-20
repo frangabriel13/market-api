@@ -3,8 +3,10 @@ import {
   EstadoPedido,
   Rol,
   TipoEntrega,
+  TipoTextoLegal,
 } from './generated/prisma/enums.js';
 import { loginSchema } from './schemas/auth.js';
+import { ETIQUETAS_TEXTO_LEGAL, TIPOS_TEXTO_LEGAL } from './schemas/legales.js';
 import { ESTADOS_MARCA } from './schemas/marcas.js';
 import {
   ETIQUETAS_TIPO_ENTREGA,
@@ -39,6 +41,11 @@ describe('constantes sincronizadas con los enums de Prisma', () => {
 
   it('cada estado de pedido tiene etiqueta', () => {
     expect(Object.keys(ETIQUETAS_ESTADO_PEDIDO)).toEqual([...ESTADOS_PEDIDO]);
+  });
+
+  it('tipos de texto legal', () => {
+    expect([...TIPOS_TEXTO_LEGAL]).toEqual(Object.values(TipoTextoLegal));
+    expect(Object.keys(ETIQUETAS_TEXTO_LEGAL)).toEqual([...TIPOS_TEXTO_LEGAL]);
   });
 });
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Categoria } from './categorias.ts';
+import type { TipoTextoLegal } from './legales.ts';
 import type { Marca } from './marcas.ts';
 import type { OpcionEntrega } from './opciones-entrega.ts';
 import type { FotoProducto, Producto } from './productos.ts';
@@ -47,6 +48,8 @@ export interface MarcaTienda extends Pick<
 > {
   // Solo las activas, en orden.
   opcionesEntrega: Pick<OpcionEntrega, 'id' | 'nombre' | 'tipo'>[];
+  // Los de la plataforma que tienen contenido (GET /tienda/legales/:tipo).
+  textosLegales: TipoTextoLegal[];
 }
 
 type CategoriaDeTienda = Pick<Categoria, 'nombre' | 'slug'>;
