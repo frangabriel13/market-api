@@ -12,6 +12,7 @@ import {
 import {
   crearCategoria,
   crearMarca,
+  crearPedido,
   crearProducto,
   crearUsuario,
   limpiarBase,
@@ -25,6 +26,8 @@ interface Ids {
   productoA: string;
   productoB: string;
   fotoB: string;
+  pedidoA: string;
+  pedidoB: string;
   categoriaId: string;
 }
 
@@ -105,6 +108,20 @@ const RUTAS: Ruta[] = [
       url: `/panel/productos/${productoB}/fotos/${fotoB}`,
     }),
   },
+  { metodo: 'get', ruta: '/panel/pedidos' },
+  {
+    metodo: 'get',
+    ruta: '/panel/pedidos/:id',
+    ajena: ({ pedidoB }) => ({ url: `/panel/pedidos/${pedidoB}` }),
+  },
+  {
+    metodo: 'patch',
+    ruta: '/panel/pedidos/:id/estado',
+    ajena: ({ pedidoB }) => ({
+      url: `/panel/pedidos/${pedidoB}/estado`,
+      cuerpo: { estado: 'CANCELADO' },
+    }),
+  },
 ];
 
 const conIdsCualquiera = (ruta: string) =>
@@ -117,12 +134,17 @@ describe('Aislamiento del panel por marca (e2e)', () => {
   let fabricanteA: ReturnType<typeof cliente>;
   let borrar: MockInstance<StorageService['borrar']>;
 
-  const datosDeB = () =>
-    prisma.producto.findMany({
+  const datosDeB = async () => ({
+    productos: await prisma.producto.findMany({
       where: { marca: { slug: 'marca-b' } },
       include: { fotos: true, variantes: true },
       orderBy: { id: 'asc' },
-    });
+    }),
+    pedidos: await prisma.pedido.findMany({
+      where: { marca: { slug: 'marca-b' } },
+      include: { items: true },
+    }),
+  });
 
   beforeAll(async () => {
     app = await crearApp();
@@ -160,7 +182,16 @@ describe('Aislamiento del panel por marca (e2e)', () => {
         },
       })
     ).id;
-    ids = { productoA, productoB, fotoB, categoriaId };
+    const pedidoA = (await crearPedido(prisma, { marcaId: marcaA, numero: 1 }))
+      .id;
+    const pedidoB = (
+      await crearPedido(prisma, {
+        marcaId: marcaB,
+        numero: 1,
+        compradorNombre: 'De B',
+      })
+    ).id;
+    ids = { productoA, productoB, fotoB, pedidoA, pedidoB, categoriaId };
 
     await crearUsuario(prisma, { email: 'admin@test.com' });
     await crearUsuario(prisma, { email: 'a@test.com', marcaId: marcaA });
@@ -205,6 +236,11 @@ describe('Aislamiento del panel por marca (e2e)', () => {
     const lista = await fabricanteA.get('/panel/productos').expect(200);
     expect(lista.body.map((p: { id: string }) => p.id)).toEqual([
       ids.productoA,
+    ]);
+
+    const pedidos = await fabricanteA.get('/panel/pedidos').expect(200);
+    expect(pedidos.body.map((p: { id: string }) => p.id)).toEqual([
+      ids.pedidoA,
     ]);
 
     const marca = await fabricanteA.get('/panel/marca').expect(200);

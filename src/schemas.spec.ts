@@ -12,7 +12,11 @@ import {
   ETIQUETAS_TIPO_ENTREGA,
   TIPOS_ENTREGA,
 } from './schemas/opciones-entrega.js';
-import { ESTADOS_PEDIDO, ETIQUETAS_ESTADO_PEDIDO } from './schemas/pedidos.js';
+import {
+  ESTADOS_PEDIDO,
+  ETIQUETAS_ESTADO_PEDIDO,
+  pedidoCrearSchema,
+} from './schemas/pedidos.js';
 import { ROLES } from './schemas/roles.js';
 import {
   formatearTelefono,
@@ -151,5 +155,61 @@ describe('identificarTienda', () => {
     expect(identificarTienda('mi-marca.localhost', 'localhost:3000')).toEqual({
       slug: 'mi-marca',
     });
+  });
+});
+
+describe('pedidoCrearSchema', () => {
+  const item = {
+    productoId: '0199f0f0-0000-7000-8000-000000000000',
+    color: 'Negro',
+    talle: 'M',
+    cantidad: 2,
+  };
+  const retiro = {
+    items: [item],
+    opcionEntregaId: '0199f0f0-0000-7000-8000-000000000001',
+    tipoEntrega: 'RETIRO',
+    nombre: 'Juan',
+    telefono: '11 5555-5555',
+  };
+
+  const campos = (datos: object) =>
+    pedidoCrearSchema
+      .safeParse(datos)
+      .error?.issues.map((issue) => issue.path.join('.'));
+
+  it('retiro: alcanza con nombre y teléfono', () => {
+    expect(pedidoCrearSchema.parse(retiro).telefono).toBe('5491155555555');
+  });
+
+  it('envío: exige dirección, localidad y provincia', () => {
+    expect(campos({ ...retiro, tipoEntrega: 'ENVIO', localidad: ' ' })).toEqual(
+      ['direccion', 'localidad', 'provincia'],
+    );
+  });
+
+  it('DNI y CUIT: opcionales, se guardan solo los números', () => {
+    const pedido = pedidoCrearSchema.parse({
+      ...retiro,
+      tipoEntrega: 'ENVIO',
+      direccion: 'Calle 1',
+      localidad: 'Rosario',
+      provincia: 'Santa Fe',
+      dni: '30.123.456',
+      cuit: '',
+    });
+    expect(pedido.dni).toBe('30123456');
+    expect(pedido.cuit).toBeNull();
+    expect(campos({ ...retiro, dni: '123', cuit: '20-1234-5' })).toEqual([
+      'dni',
+      'cuit',
+    ]);
+  });
+
+  it('rechaza el carrito vacío y los ítems repetidos', () => {
+    expect(campos({ ...retiro, items: [] })).toEqual(['items']);
+    expect(
+      campos({ ...retiro, items: [item, { ...item, cantidad: 1 }] }),
+    ).toEqual(['items']);
   });
 });

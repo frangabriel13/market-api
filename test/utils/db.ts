@@ -50,3 +50,32 @@ export async function crearProducto(
     data: { nombre: 'Remera', precio: 1000, ...datos },
   });
 }
+
+// Pedido de retiro con un ítem, y su propia opción de entrega.
+export async function crearPedido(
+  prisma: PrismaService,
+  datos: { marcaId: string; numero: number; compradorNombre?: string },
+) {
+  const opcion = await prisma.opcionEntrega.create({
+    data: { marcaId: datos.marcaId, nombre: 'Retiro', tipo: 'RETIRO' },
+  });
+  return prisma.pedido.create({
+    data: {
+      compradorNombre: 'Juan',
+      ...datos,
+      opcionEntregaId: opcion.id,
+      tipoEntrega: 'RETIRO',
+      compradorTelefono: '5491155555555',
+      total: 2000,
+      items: {
+        create: {
+          nombreProducto: 'Remera',
+          color: 'Negro',
+          talle: 'M',
+          cantidad: 2,
+          precioUnitario: 1000,
+        },
+      },
+    },
+  });
+}

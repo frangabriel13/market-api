@@ -22,8 +22,10 @@ export function errorDeListas(
   return null;
 }
 
-const esVigente = (v: VarianteProducto, { colores, talles }: ListasDeMarca) =>
-  colores.includes(v.color) && talles.includes(v.talle);
+export const esVigente = (
+  v: Pick<VarianteProducto, 'color' | 'talle'>,
+  { colores, talles }: ListasDeMarca,
+) => colores.includes(v.color) && talles.includes(v.talle);
 
 // Si Piter quita un color o un talle de la marca, sus variantes no se borran:
 // dejan de mostrarse y vuelven si lo agrega de nuevo. Salen en el orden de las
