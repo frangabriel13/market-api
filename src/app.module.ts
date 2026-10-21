@@ -10,6 +10,7 @@ import { loggerConfig } from './config/logger.js';
 import { LegalesModule } from './legales/legales.module.js';
 import { MarcasModule } from './marcas/marcas.module.js';
 import { OpcionesEntregaModule } from './opciones-entrega/opciones-entrega.module.js';
+import { PedidosModule } from './pedidos/pedidos.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProductosModule } from './productos/productos.module.js';
 import { TiendaModule } from './tienda/tienda.module.js';
@@ -29,6 +30,7 @@ import { TiendaModule } from './tienda/tienda.module.js';
     ProductosModule,
     TiendaModule,
     LegalesModule,
+    PedidosModule,
   ],
   providers: [{ provide: APP_PIPE, useClass: ZodValidationPipe }],
 })
