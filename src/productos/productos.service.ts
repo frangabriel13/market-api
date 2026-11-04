@@ -17,6 +17,7 @@ import type {
 import { carpetaDeMarca } from '../storage/carpetas.js';
 import { StorageService } from '../storage/storage.service.js';
 import {
+  contarCombinaciones,
   errorDeListas,
   LISTAS_DE_MARCA,
   variantesVigentes,
@@ -31,6 +32,7 @@ const RESUMEN = {
   visible: true,
   categoria: CATEGORIA,
   fotos: { select: { urlMiniatura: true }, orderBy: { orden: 'asc' }, take: 1 },
+  variantes: { select: { color: true, talle: true, disponible: true } },
 } satisfies Prisma.ProductoSelect;
 
 const DETALLE = {
@@ -62,14 +64,21 @@ export class ProductosService {
   ) {}
 
   async listar(marcaId: string): Promise<ProductoResumen[]> {
-    const productos = await this.prisma.producto.findMany({
-      where: { marcaId },
-      select: RESUMEN,
-      orderBy: { creadoEn: 'desc' },
-    });
-    return productos.map(({ fotos, ...producto }) => ({
+    const [listas, productos] = await Promise.all([
+      this.prisma.marca.findUniqueOrThrow({
+        where: { id: marcaId },
+        select: LISTAS_DE_MARCA,
+      }),
+      this.prisma.producto.findMany({
+        where: { marcaId },
+        select: RESUMEN,
+        orderBy: { creadoEn: 'desc' },
+      }),
+    ]);
+    return productos.map(({ fotos, variantes, ...producto }) => ({
       ...producto,
       miniatura: fotos[0]?.urlMiniatura ?? null,
+      ...contarCombinaciones(variantes, listas),
     }));
   }
 

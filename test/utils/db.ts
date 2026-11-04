@@ -66,6 +66,7 @@ export async function crearPedido(
       opcionEntregaId: opcion.id,
       tipoEntrega: 'RETIRO',
       compradorTelefono: '5491155555555',
+      formaPago: 'TRANSFERENCIA',
       total: 2000,
       items: {
         create: {

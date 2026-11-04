@@ -32,6 +32,7 @@ describe('Tienda: POST /tienda/pedidos (e2e)', () => {
     tipoEntrega: 'RETIRO',
     nombre: 'Juan Pérez',
     telefono: '011 15 5555-5555',
+    formaPago: 'TRANSFERENCIA',
   });
 
   const envio = () => ({
@@ -42,7 +43,9 @@ describe('Tienda: POST /tienda/pedidos (e2e)', () => {
     direccion: 'Calle Falsa 123',
     localidad: 'Rosario',
     provincia: 'Santa Fe',
+    codigoPostal: 's2000abc',
     transporte: 'Vía Cargo',
+    formaPago: 'EFECTIVO',
   });
 
   const numeroActual = async () =>
@@ -132,6 +135,8 @@ describe('Tienda: POST /tienda/pedidos (e2e)', () => {
       total: 1,
       // Retiro: los datos de envío se descartan.
       direccion: 'No va',
+      dni: '30123456',
+      codigoPostal: '2000',
     }).expect(201);
 
     expect(res.body).toEqual({
@@ -151,6 +156,7 @@ describe('Tienda: POST /tienda/pedidos (e2e)', () => {
         '',
         'Total: $ 36.000',
         'Entrega: Retiro en fábrica',
+        'Pago: Transferencia',
         'Nombre: Juan Pérez · Tel: 11 5555-5555',
       ].join('\n'),
     );
@@ -166,7 +172,10 @@ describe('Tienda: POST /tienda/pedidos (e2e)', () => {
       opcionEntregaId: ids.retiro,
       compradorNombre: 'Juan Pérez',
       compradorTelefono: '5491155555555',
+      compradorDni: null,
       direccion: null,
+      codigoPostal: null,
+      formaPago: 'TRANSFERENCIA',
       total: 36000,
     });
     expect(pedido.items).toEqual([
@@ -183,8 +192,15 @@ describe('Tienda: POST /tienda/pedidos (e2e)', () => {
     expect(await numeroActual()).toBe(1024);
   });
 
-  it('envío: guarda los datos del comprador', async () => {
-    await pedir(envio()).expect(201);
+  it('envío: guarda los datos del comprador y los suma al mensaje', async () => {
+    const res = await pedir(envio()).expect(201);
+    expect(textoDe(res.body.whatsappUrl).split('\n').slice(-5)).toEqual([
+      'Entrega: Expreso a domicilio',
+      'Pago: Efectivo',
+      'Nombre: Juan Pérez · Tel: 11 5555-5555',
+      'DNI: 30123456',
+      'Dirección: Calle Falsa 123, Rosario, Santa Fe (CP S2000ABC)',
+    ]);
     expect(await prisma.pedido.findFirstOrThrow()).toMatchObject({
       tipoEntrega: 'ENVIO',
       compradorDni: '30123456',
@@ -192,15 +208,28 @@ describe('Tienda: POST /tienda/pedidos (e2e)', () => {
       direccion: 'Calle Falsa 123',
       localidad: 'Rosario',
       provincia: 'Santa Fe',
+      codigoPostal: 'S2000ABC',
       transporte: 'Vía Cargo',
       observaciones: null,
+      formaPago: 'EFECTIVO',
     });
   });
 
-  it('envío sin dirección: 400 marcando el campo', async () => {
-    const res = await pedir({ ...envio(), direccion: '' }).expect(400);
+  it('envío sin DNI ni código postal: 400 marcando los campos', async () => {
+    const res = await pedir({ ...envio(), dni: '', codigoPostal: '' }).expect(
+      400,
+    );
     expect(res.body.errors.map((e: { path: string[] }) => e.path)).toEqual([
-      ['direccion'],
+      ['dni'],
+      ['codigoPostal'],
+    ]);
+    expect(await prisma.pedido.count()).toBe(0);
+  });
+
+  it('400 sin forma de pago', async () => {
+    const res = await pedir({ ...retiro(), formaPago: undefined }).expect(400);
+    expect(res.body.errors.map((e: { path: string[] }) => e.path)).toEqual([
+      ['formaPago'],
     ]);
   });
 

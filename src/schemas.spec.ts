@@ -1,6 +1,7 @@
 import {
   EstadoMarca,
   EstadoPedido,
+  FormaPago,
   Rol,
   TipoEntrega,
   TipoTextoLegal,
@@ -15,6 +16,8 @@ import {
 import {
   ESTADOS_PEDIDO,
   ETIQUETAS_ESTADO_PEDIDO,
+  ETIQUETAS_FORMA_PAGO,
+  FORMAS_PAGO,
   pedidoCrearSchema,
 } from './schemas/pedidos.js';
 import { ROLES } from './schemas/roles.js';
@@ -45,6 +48,11 @@ describe('constantes sincronizadas con los enums de Prisma', () => {
 
   it('cada estado de pedido tiene etiqueta', () => {
     expect(Object.keys(ETIQUETAS_ESTADO_PEDIDO)).toEqual([...ESTADOS_PEDIDO]);
+  });
+
+  it('formas de pago', () => {
+    expect([...FORMAS_PAGO]).toEqual(Object.values(FormaPago));
+    expect(Object.keys(ETIQUETAS_FORMA_PAGO)).toEqual([...FORMAS_PAGO]);
   });
 
   it('tipos de texto legal', () => {
@@ -171,6 +179,7 @@ describe('pedidoCrearSchema', () => {
     tipoEntrega: 'RETIRO',
     nombre: 'Juan',
     telefono: '11 5555-5555',
+    formaPago: 'TRANSFERENCIA',
   };
 
   const campos = (datos: object) =>
@@ -178,33 +187,64 @@ describe('pedidoCrearSchema', () => {
       .safeParse(datos)
       .error?.issues.map((issue) => issue.path.join('.'));
 
-  it('retiro: alcanza con nombre y teléfono', () => {
+  const envio = {
+    ...retiro,
+    tipoEntrega: 'ENVIO',
+    dni: '30.123.456',
+    direccion: 'Calle 1',
+    localidad: 'Rosario',
+    provincia: 'Santa Fe',
+    codigoPostal: '2000',
+  };
+
+  it('retiro: alcanza con nombre, teléfono y forma de pago', () => {
     expect(pedidoCrearSchema.parse(retiro).telefono).toBe('5491155555555');
   });
 
-  it('envío: exige dirección, localidad y provincia', () => {
-    expect(campos({ ...retiro, tipoEntrega: 'ENVIO', localidad: ' ' })).toEqual(
-      ['direccion', 'localidad', 'provincia'],
-    );
+  it('exige la forma de pago', () => {
+    expect(campos({ ...retiro, formaPago: undefined })).toEqual(['formaPago']);
+    expect(campos({ ...retiro, formaPago: 'TARJETA' })).toEqual(['formaPago']);
   });
 
-  it('DNI y CUIT: opcionales, se guardan solo los números', () => {
-    const pedido = pedidoCrearSchema.parse({
-      ...retiro,
-      tipoEntrega: 'ENVIO',
-      direccion: 'Calle 1',
-      localidad: 'Rosario',
-      provincia: 'Santa Fe',
-      dni: '30.123.456',
-      cuit: '',
-    });
+  it('envío: exige DNI, dirección, localidad, provincia y código postal', () => {
+    expect(
+      campos({
+        ...envio,
+        dni: '',
+        direccion: undefined,
+        localidad: ' ',
+        provincia: null,
+        codigoPostal: '',
+      }),
+    ).toEqual(['dni', 'direccion', 'localidad', 'provincia', 'codigoPostal']);
+  });
+
+  it('DNI y CUIT: se guardan solo los números; el CUIT es opcional', () => {
+    const pedido = pedidoCrearSchema.parse({ ...envio, cuit: '' });
     expect(pedido.dni).toBe('30123456');
     expect(pedido.cuit).toBeNull();
-    expect(campos({ ...retiro, dni: '123', cuit: '20-1234-5' })).toEqual([
+    expect(campos({ ...envio, dni: '123', cuit: '20-1234-5' })).toEqual([
       'dni',
       'cuit',
     ]);
   });
+
+  it.each([
+    ['2000', '2000'],
+    [' s2000abc ', 'S2000ABC'],
+    ['C 1425 ABC', 'C1425ABC'],
+  ])('código postal %j → %s', (codigoPostal, esperado) => {
+    expect(
+      pedidoCrearSchema.parse({ ...envio, codigoPostal }).codigoPostal,
+    ).toBe(esperado);
+  });
+
+  it.each(['200', '20000', 'S2000AB', '2000ABC'])(
+    'rechaza el código postal %j',
+    (codigoPostal) => {
+      expect(campos({ ...envio, codigoPostal })).toEqual(['codigoPostal']);
+    },
+  );
 
   it('rechaza el carrito vacío y los ítems repetidos', () => {
     expect(campos({ ...retiro, items: [] })).toEqual(['items']);

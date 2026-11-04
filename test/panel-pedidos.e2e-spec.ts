@@ -35,7 +35,26 @@ describe('Panel: pedidos (e2e)', () => {
 
   it('lista los pedidos de la marca, del más nuevo al más viejo', async () => {
     await crearPedido(prisma, { marcaId, numero: 1, compradorNombre: 'Ana' });
-    await crearPedido(prisma, { marcaId, numero: 2, compradorNombre: 'Beto' });
+    const beto = await crearPedido(prisma, {
+      marcaId,
+      numero: 2,
+      compradorNombre: 'Beto',
+    });
+    await prisma.pedido.update({
+      where: { id: beto.id },
+      data: {
+        localidad: 'Rosario',
+        items: {
+          create: {
+            nombreProducto: 'Jogger',
+            color: 'Gris',
+            talle: 'L',
+            cantidad: 5,
+            precioUnitario: 1000,
+          },
+        },
+      },
+    });
     const otra = (await crearMarca(prisma, 'otra')).id;
     await crearPedido(prisma, { marcaId: otra, numero: 3 });
 
@@ -49,9 +68,16 @@ describe('Panel: pedidos (e2e)', () => {
         compradorNombre: 'Beto',
         tipoEntrega: 'RETIRO',
         entrega: 'Retiro',
+        localidad: 'Rosario',
+        unidades: 7,
         total: 2000,
       },
-      expect.objectContaining({ numero: 1, compradorNombre: 'Ana' }),
+      expect.objectContaining({
+        numero: 1,
+        compradorNombre: 'Ana',
+        localidad: null,
+        unidades: 2,
+      }),
     ]);
   });
 
@@ -79,10 +105,13 @@ describe('Panel: pedidos (e2e)', () => {
         tipoEntrega: 'ENVIO',
         nombre: 'Juan Pérez',
         telefono: '11 5555-5555',
+        formaPago: 'EFECTIVO',
+        dni: '30123456',
         cuit: '20-30123456-7',
         direccion: 'Calle Falsa 123',
         localidad: 'Rosario',
         provincia: 'Santa Fe',
+        codigoPostal: '2000',
         observaciones: 'Tocar timbre',
       })
       .expect(201);
@@ -98,15 +127,18 @@ describe('Panel: pedidos (e2e)', () => {
       creadoEn: expect.any(String),
       compradorNombre: 'Juan Pérez',
       compradorTelefono: '5491155555555',
-      compradorDni: null,
+      compradorDni: '30123456',
       compradorCuit: '20301234567',
       tipoEntrega: 'ENVIO',
       entrega: 'Expreso',
       direccion: 'Calle Falsa 123',
       localidad: 'Rosario',
       provincia: 'Santa Fe',
+      codigoPostal: '2000',
       transporte: null,
       observaciones: 'Tocar timbre',
+      formaPago: 'EFECTIVO',
+      unidades: 3,
       total: 3000,
       items: [
         {

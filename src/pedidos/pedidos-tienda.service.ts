@@ -85,18 +85,7 @@ export class PedidosTiendaService {
         );
       }
 
-      const envio =
-        datos.tipoEntrega === 'ENVIO'
-          ? {
-              compradorDni: datos.dni,
-              compradorCuit: datos.cuit,
-              direccion: datos.direccion,
-              localidad: datos.localidad,
-              provincia: datos.provincia,
-              transporte: datos.transporte,
-              observaciones: datos.observaciones,
-            }
-          : {};
+      const envio = datos.tipoEntrega === 'ENVIO' ? datos : undefined;
       const numero = marca.ultimoNumeroPedido;
       await tx.pedido.create({
         data: {
@@ -106,7 +95,17 @@ export class PedidosTiendaService {
           tipoEntrega: opcion.tipo,
           compradorNombre: datos.nombre,
           compradorTelefono: datos.telefono,
-          ...envio,
+          ...(envio && {
+            compradorDni: envio.dni,
+            compradorCuit: envio.cuit,
+            direccion: envio.direccion,
+            localidad: envio.localidad,
+            provincia: envio.provincia,
+            codigoPostal: envio.codigoPostal,
+            transporte: envio.transporte,
+            observaciones: envio.observaciones,
+          }),
+          formaPago: datos.formaPago,
           total,
           items: { create: items },
         },
@@ -117,8 +116,10 @@ export class PedidosTiendaService {
         items,
         total,
         entrega: opcion.nombre,
+        formaPago: datos.formaPago,
         nombre: datos.nombre,
         telefono: datos.telefono,
+        envio,
       });
       return {
         numero,

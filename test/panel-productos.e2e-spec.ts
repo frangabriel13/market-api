@@ -175,6 +175,41 @@ describe('Panel: productos (e2e)', () => {
         ['Viejo', fotoUrl(marcaA, '0-mini.webp')],
       ]);
     });
+
+    it('cuenta las combinaciones vigentes y las agotadas', async () => {
+      const { id } = await crearProducto(prisma, {
+        marcaId: marcaA,
+        categoriaId,
+      });
+      await prisma.variante.createMany({
+        data: [
+          { productoId: id, color: 'Negro', talle: 'S' },
+          { productoId: id, color: 'Negro', talle: 'M', disponible: false },
+          { productoId: id, color: 'Blanco', talle: 'S', disponible: false },
+          // Rojo ya no está en la lista de la marca: no cuenta.
+          { productoId: id, color: 'Rojo', talle: 'S', disponible: false },
+        ],
+      });
+      await crearProducto(prisma, {
+        marcaId: marcaA,
+        categoriaId,
+        nombre: 'Sin combinaciones',
+      });
+
+      const res = await panel.get('/panel/productos').expect(200);
+      expect(
+        res.body.map(
+          (p: { nombre: string; combinaciones: number; agotadas: number }) => [
+            p.nombre,
+            p.combinaciones,
+            p.agotadas,
+          ],
+        ),
+      ).toEqual([
+        ['Sin combinaciones', 0, 0],
+        ['Remera', 3, 2],
+      ]);
+    });
   });
 
   describe('GET /panel/productos/:id', () => {
@@ -513,6 +548,7 @@ describe('Panel: productos (e2e)', () => {
           tipoEntrega: 'RETIRO',
           compradorNombre: 'Juan',
           compradorTelefono: '5491155555555',
+          formaPago: 'EFECTIVO',
           total: 1000,
           items: {
             create: {
