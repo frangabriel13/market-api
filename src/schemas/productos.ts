@@ -90,6 +90,9 @@ export interface ProductoResumen {
   visible: boolean;
   categoria: CategoriaDeProducto;
   miniatura: string | null;
+  // Combinaciones color × talle vigentes y cuántas de ellas están agotadas.
+  combinaciones: number;
+  agotadas: number;
 }
 
 export interface FotoProducto {

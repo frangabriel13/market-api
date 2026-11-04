@@ -1,4 +1,9 @@
-import { errorDeListas, estaAgotado, variantesVigentes } from './variantes.js';
+import {
+  contarCombinaciones,
+  errorDeListas,
+  estaAgotado,
+  variantesVigentes,
+} from './variantes.js';
 
 const LISTAS = { colores: ['Negro', 'Blanco'], talles: ['S', 'M', 'L'] };
 
@@ -68,5 +73,20 @@ describe('estaAgotado', () => {
 
   it('sí, si no tiene combinaciones', () => {
     expect(estaAgotado([], LISTAS)).toBe(true);
+  });
+});
+
+describe('contarCombinaciones', () => {
+  it('cuenta solo las vigentes', () => {
+    const variantes = [
+      v('Negro', 'S'),
+      v('Negro', 'M', false),
+      v('Blanco', 'L', false),
+      v('Rojo', 'S', false),
+    ];
+    expect(contarCombinaciones(variantes, LISTAS)).toEqual({
+      combinaciones: 3,
+      agotadas: 2,
+    });
   });
 });

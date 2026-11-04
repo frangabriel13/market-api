@@ -50,3 +50,15 @@ export const estaAgotado = (
   variantes: VarianteProducto[],
   listas: ListasDeMarca,
 ) => !variantes.some((v) => v.disponible && esVigente(v, listas));
+
+// Para el listado del panel: combinaciones vigentes y cuántas están agotadas.
+export function contarCombinaciones(
+  variantes: VarianteProducto[],
+  listas: ListasDeMarca,
+) {
+  const vigentes = variantes.filter((v) => esVigente(v, listas));
+  return {
+    combinaciones: vigentes.length,
+    agotadas: vigentes.filter((v) => !v.disponible).length,
+  };
+}

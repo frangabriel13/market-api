@@ -33,6 +33,11 @@ enum EstadoPedido {
   CANCELADO
 }
 
+enum FormaPago {
+  TRANSFERENCIA
+  EFECTIVO
+}
+
 enum TipoTextoLegal {
   TERMINOS
   PRIVACIDAD
@@ -191,8 +196,10 @@ model Pedido {
   direccion         String?
   localidad         String?
   provincia         String?
+  codigoPostal      String?
   transporte        String?
   observaciones     String?
+  formaPago         FormaPago
   total             Int
   creadoEn          DateTime     @default(now())
 

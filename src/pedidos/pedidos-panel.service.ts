@@ -15,8 +15,10 @@ const RESUMEN = {
   creadoEn: true,
   compradorNombre: true,
   tipoEntrega: true,
+  localidad: true,
   total: true,
   opcionEntrega: { select: { nombre: true } },
+  items: { select: { cantidad: true } },
 } satisfies Prisma.PedidoSelect;
 
 const DETALLE = {
@@ -25,10 +27,11 @@ const DETALLE = {
   compradorDni: true,
   compradorCuit: true,
   direccion: true,
-  localidad: true,
   provincia: true,
+  codigoPostal: true,
   transporte: true,
   observaciones: true,
+  formaPago: true,
   items: {
     select: {
       productoId: true,
@@ -56,7 +59,10 @@ export class PedidosPanelService {
       select: RESUMEN,
       orderBy: { numero: 'desc' },
     });
-    return pedidos.map(aPedido);
+    return pedidos.map((pedido) => {
+      const { items: _items, ...resumen } = aPedido(pedido);
+      return resumen;
+    });
   }
 
   async obtener(marcaId: string, id: string): Promise<Pedido> {
@@ -87,11 +93,16 @@ export class PedidosPanelService {
 }
 
 function aPedido<
-  T extends { creadoEn: Date; opcionEntrega: { nombre: string } },
+  T extends {
+    creadoEn: Date;
+    opcionEntrega: { nombre: string };
+    items: { cantidad: number }[];
+  },
 >({ creadoEn, opcionEntrega, ...pedido }: T) {
   return {
     ...pedido,
     creadoEn: creadoEn.toISOString(),
     entrega: opcionEntrega.nombre,
+    unidades: pedido.items.reduce((suma, item) => suma + item.cantidad, 0),
   };
 }
