@@ -19,7 +19,8 @@ import { StorageService } from '../storage/storage.service.js';
 import {
   contarCombinaciones,
   errorDeListas,
-  LISTAS_DE_MARCA,
+  LISTAS_DEL_PRODUCTO,
+  listasDe,
   variantesVigentes,
 } from './variantes.js';
 
@@ -33,6 +34,7 @@ const RESUMEN = {
   categoria: CATEGORIA,
   fotos: { select: { urlMiniatura: true }, orderBy: { orden: 'asc' }, take: 1 },
   variantes: { select: { color: true, talle: true, disponible: true } },
+  ...LISTAS_DEL_PRODUCTO,
 } satisfies Prisma.ProductoSelect;
 
 const DETALLE = {
@@ -42,12 +44,13 @@ const DETALLE = {
   precio: true,
   visible: true,
   categoria: CATEGORIA,
+  listaTallesId: true,
   fotos: {
     select: { id: true, url: true, urlMiniatura: true, orden: true },
     orderBy: { orden: 'asc' },
   },
   variantes: { select: { color: true, talle: true, disponible: true } },
-  marca: { select: LISTAS_DE_MARCA },
+  ...LISTAS_DEL_PRODUCTO,
 } satisfies Prisma.ProductoSelect;
 
 type FilaDetalle = Prisma.ProductoGetPayload<{ select: typeof DETALLE }>;
@@ -64,22 +67,21 @@ export class ProductosService {
   ) {}
 
   async listar(marcaId: string): Promise<ProductoResumen[]> {
-    const [listas, productos] = await Promise.all([
-      this.prisma.marca.findUniqueOrThrow({
-        where: { id: marcaId },
-        select: LISTAS_DE_MARCA,
+    const productos = await this.prisma.producto.findMany({
+      where: { marcaId },
+      select: RESUMEN,
+      orderBy: { creadoEn: 'desc' },
+    });
+    return productos.map(
+      ({ fotos, variantes, conColores, marca, listaTalles, ...producto }) => ({
+        ...producto,
+        miniatura: fotos[0]?.urlMiniatura ?? null,
+        ...contarCombinaciones(
+          variantes,
+          listasDe({ conColores, marca, listaTalles }),
+        ),
       }),
-      this.prisma.producto.findMany({
-        where: { marcaId },
-        select: RESUMEN,
-        orderBy: { creadoEn: 'desc' },
-      }),
-    ]);
-    return productos.map(({ fotos, variantes, ...producto }) => ({
-      ...producto,
-      miniatura: fotos[0]?.urlMiniatura ?? null,
-      ...contarCombinaciones(variantes, listas),
-    }));
+    );
   }
 
   async obtener(marcaId: string, id: string): Promise<Producto> {
@@ -93,6 +95,9 @@ export class ProductosService {
 
   async crear(marcaId: string, datos: ProductoCrear): Promise<Producto> {
     await this.validarCategoria(datos.categoriaId);
+    if (datos.listaTallesId) {
+      await this.validarListaTalles(marcaId, datos.listaTallesId);
+    }
     const producto = await this.prisma.producto.create({
       data: { ...datos, marcaId },
       select: DETALLE,
@@ -106,6 +111,9 @@ export class ProductosService {
     datos: ProductoEditar,
   ): Promise<Producto> {
     if (datos.categoriaId) await this.validarCategoria(datos.categoriaId);
+    if (datos.listaTallesId) {
+      await this.validarListaTalles(marcaId, datos.listaTallesId);
+    }
     return this.actualizar(marcaId, id, datos);
   }
 
@@ -124,14 +132,23 @@ export class ProductosService {
   ): Promise<Producto> {
     const producto = await this.prisma.producto.findFirst({
       where: { id, marcaId },
-      select: { marca: { select: LISTAS_DE_MARCA } },
+      select: LISTAS_DEL_PRODUCTO,
     });
     if (!producto) throw new NotFoundException(NO_ENCONTRADO);
-    const error = errorDeListas(variantes, producto.marca);
+    const listas = listasDe(producto);
+    const error = errorDeListas(variantes, listas);
     if (error) throw new BadRequestException(error);
 
+    // Las ocultas (de valores quitados, otra lista u otra modalidad) quedan
+    // guardadas para cuando vuelvan.
     await this.prisma.$transaction([
-      this.prisma.variante.deleteMany({ where: { productoId: id } }),
+      this.prisma.variante.deleteMany({
+        where: {
+          productoId: id,
+          color: { in: listas.colores },
+          talle: { in: listas.talles },
+        },
+      }),
       this.prisma.variante.createMany({
         data: variantes.map((variante) => ({ ...variante, productoId: id })),
       }),
@@ -173,6 +190,12 @@ export class ProductosService {
       throw new BadRequestException('La categoría no existe');
     }
   }
+
+  private async validarListaTalles(marcaId: string, id: string) {
+    if (!(await this.prisma.listaTalles.count({ where: { id, marcaId } }))) {
+      throw new BadRequestException('La lista de talles no existe');
+    }
+  }
 }
 
 function traducirError(error: unknown): never {
@@ -180,6 +203,10 @@ function traducirError(error: unknown): never {
   throw error;
 }
 
-function aProducto({ marca, variantes, ...producto }: FilaDetalle): Producto {
-  return { ...producto, variantes: variantesVigentes(variantes, marca) };
+function aProducto(fila: FilaDetalle): Producto {
+  const { marca: _marca, listaTalles: _listaTalles, ...producto } = fila;
+  return {
+    ...producto,
+    variantes: variantesVigentes(fila.variantes, listasDe(fila)),
+  };
 }

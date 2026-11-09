@@ -11,6 +11,7 @@ import {
 } from './utils/app.js';
 import {
   crearCategoria,
+  crearListaTalles,
   crearMarca,
   crearPedido,
   crearProducto,
@@ -28,6 +29,8 @@ interface Ids {
   fotoB: string;
   pedidoA: string;
   pedidoB: string;
+  listaA: string;
+  listaB: string;
   categoriaId: string;
 }
 
@@ -108,6 +111,30 @@ const RUTAS: Ruta[] = [
       url: `/panel/productos/${productoB}/fotos/${fotoB}`,
     }),
   },
+  { metodo: 'get', ruta: '/panel/listas' },
+  { metodo: 'put', ruta: '/panel/colores' },
+  { metodo: 'post', ruta: '/panel/listas-talles' },
+  {
+    metodo: 'patch',
+    ruta: '/panel/listas-talles/:id',
+    ajena: ({ listaB }) => ({
+      url: `/panel/listas-talles/${listaB}`,
+      cuerpo: { nombre: 'Robada', talles: [{ nombre: 'L', anterior: 'M' }] },
+    }),
+  },
+  {
+    metodo: 'delete',
+    ruta: '/panel/listas-talles/:id',
+    ajena: ({ listaB }) => ({ url: `/panel/listas-talles/${listaB}` }),
+  },
+  {
+    metodo: 'post',
+    ruta: '/panel/listas-talles/:id/guia',
+    ajena: ({ listaB }) => ({
+      url: `/panel/listas-talles/${listaB}/guia`,
+      cuerpo: { contentType: 'image/webp', tamanio: 1 },
+    }),
+  },
   { metodo: 'get', ruta: '/panel/pedidos' },
   {
     metodo: 'get',
@@ -135,6 +162,10 @@ describe('Aislamiento del panel por marca (e2e)', () => {
   let borrar: MockInstance<StorageService['borrar']>;
 
   const datosDeB = async () => ({
+    marca: await prisma.marca.findUniqueOrThrow({
+      where: { slug: 'marca-b' },
+      include: { listasTalles: true },
+    }),
     productos: await prisma.producto.findMany({
       where: { marca: { slug: 'marca-b' } },
       include: { fotos: true, variantes: true },
@@ -155,17 +186,36 @@ describe('Aislamiento del panel por marca (e2e)', () => {
     await limpiarBase(prisma);
     const marcaA = (await crearMarca(prisma, 'marca-a')).id;
     const marcaB = (await crearMarca(prisma, 'marca-b')).id;
-    await prisma.marca.updateMany({
-      data: { colores: ['Negro'], talles: ['M'] },
+    await prisma.marca.updateMany({ data: { colores: ['Negro'] } });
+    const listaA = (
+      await crearListaTalles(prisma, { marcaId: marcaA, talles: ['M'] })
+    ).id;
+    const listaB = (
+      await crearListaTalles(prisma, {
+        marcaId: marcaB,
+        talles: ['M'],
+        nombre: 'De B',
+      })
+    ).id;
+    await prisma.listaTalles.update({
+      where: { id: listaB },
+      data: {
+        guiaTallesUrl: `https://imagenes.test/marcas/${marcaB}/talles/${listaB}/g.webp`,
+      },
     });
     const categoriaId = (await crearCategoria(prisma, 'remeras')).id;
     const productoA = (
-      await crearProducto(prisma, { marcaId: marcaA, categoriaId })
+      await crearProducto(prisma, {
+        marcaId: marcaA,
+        categoriaId,
+        listaTallesId: listaA,
+      })
     ).id;
     const productoB = (
       await crearProducto(prisma, {
         marcaId: marcaB,
         categoriaId,
+        listaTallesId: listaB,
         nombre: 'De B',
       })
     ).id;
@@ -191,7 +241,16 @@ describe('Aislamiento del panel por marca (e2e)', () => {
         compradorNombre: 'De B',
       })
     ).id;
-    ids = { productoA, productoB, fotoB, pedidoA, pedidoB, categoriaId };
+    ids = {
+      productoA,
+      productoB,
+      fotoB,
+      pedidoA,
+      pedidoB,
+      listaA,
+      listaB,
+      categoriaId,
+    };
 
     await crearUsuario(prisma, { email: 'admin@test.com' });
     await crearUsuario(prisma, { email: 'a@test.com', marcaId: marcaA });
@@ -233,6 +292,7 @@ describe('Aislamiento del panel por marca (e2e)', () => {
   );
 
   it('las rutas sin id solo muestran y crean datos de la propia marca', async () => {
+    const antes = await datosDeB();
     const lista = await fabricanteA.get('/panel/productos').expect(200);
     expect(lista.body.map((p: { id: string }) => p.id)).toEqual([
       ids.productoA,
@@ -258,6 +318,7 @@ describe('Aislamiento del panel por marca (e2e)', () => {
         nombre: 'Nuevo',
         precio: 1000,
         categoriaId: ids.categoriaId,
+        listaTallesId: ids.listaA,
         marcaId: 'cualquiera',
       })
       .expect(201);
@@ -266,6 +327,45 @@ describe('Aislamiento del panel por marca (e2e)', () => {
       select: { marca: { select: { slug: true } } },
     });
     expect(guardado.marca.slug).toBe('marca-a');
+
+    const listas = await fabricanteA.get('/panel/listas').expect(200);
+    expect(listas.body.listasTalles.map((l: { id: string }) => l.id)).toEqual([
+      ids.listaA,
+    ]);
+
+    // Renombrar un color o un talle cambia solo las variantes de la marca.
+    await fabricanteA
+      .put('/panel/colores')
+      .send({ colores: [{ nombre: 'Gris', anterior: 'Negro' }] })
+      .expect(200);
+    await fabricanteA
+      .post('/panel/listas-talles')
+      .send({ nombre: 'Calzado', talles: ['40'], marcaId: 'cualquiera' })
+      .expect(201);
+    expect(
+      await prisma.listaTalles.count({ where: { marca: { slug: 'marca-a' } } }),
+    ).toBe(2);
+    expect(await datosDeB()).toEqual(antes);
+  });
+
+  it('un producto no puede usar la lista de talles de otra marca', async () => {
+    await fabricanteA
+      .post('/panel/productos')
+      .send({
+        nombre: 'Nuevo',
+        precio: 1000,
+        categoriaId: ids.categoriaId,
+        listaTallesId: ids.listaB,
+      })
+      .expect(400);
+    await fabricanteA
+      .patch(`/panel/productos/${ids.productoA}`)
+      .send({ listaTallesId: ids.listaB })
+      .expect(400);
+    const productoA = await prisma.producto.findUniqueOrThrow({
+      where: { id: ids.productoA },
+    });
+    expect(productoA.listaTallesId).toBe(ids.listaA);
   });
 
   it('no se puede quitar una foto de otra marca usando un producto propio', async () => {

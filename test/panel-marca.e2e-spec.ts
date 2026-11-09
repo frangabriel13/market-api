@@ -22,7 +22,6 @@ describe('Panel: GET /panel/marca (e2e)', () => {
           whatsapp: '5491155555555',
           logoUrl: 'https://imagenes.test/logo.webp',
           colores: ['Negro', 'Blanco'],
-          talles: ['S', 'M'],
           minimoCompra: 50000,
         },
       })
@@ -47,8 +46,6 @@ describe('Panel: GET /panel/marca (e2e)', () => {
       dominioPropio: null,
       estado: 'ACTIVA',
       logoUrl: 'https://imagenes.test/logo.webp',
-      colores: ['Negro', 'Blanco'],
-      talles: ['S', 'M'],
     });
   });
 
@@ -62,13 +59,10 @@ describe('Panel: GET /panel/marca (e2e)', () => {
     const panel = cliente(app, await tokenDe(app, 'a@test.com'));
     await prisma.marca.update({
       where: { id: marcaId },
-      data: { talles: ['S', 'M', 'L'], estado: 'PAUSADA' },
+      data: { logoUrl: null, estado: 'PAUSADA' },
     });
     const res = await panel.get('/panel/marca').expect(200);
-    expect(res.body).toMatchObject({
-      talles: ['S', 'M', 'L'],
-      estado: 'PAUSADA',
-    });
+    expect(res.body).toMatchObject({ logoUrl: null, estado: 'PAUSADA' });
   });
 
   it('es solo lectura', async () => {

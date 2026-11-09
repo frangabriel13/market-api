@@ -89,11 +89,23 @@ async function seedMarcaDePrueba() {
       condicionesVenta: 'Compra mínima de $ 50.000 por pedido.',
       minimoCompra: 50000,
       colores: ['Blanco', 'Negro', 'Gris'],
-      talles: ['S', 'M', 'L', 'XL'],
       direccionRetiro: 'Dirección de prueba 123, CABA',
       horariosRetiro: 'Lunes a viernes de 9 a 17',
     },
   });
+
+  const listas = await prisma.listaTalles.count({
+    where: { marcaId: marca.id },
+  });
+  if (listas === 0) {
+    await prisma.listaTalles.create({
+      data: {
+        marcaId: marca.id,
+        nombre: 'Ropa',
+        talles: ['S', 'M', 'L', 'XL'],
+      },
+    });
+  }
 
   const opciones = await prisma.opcionEntrega.count({
     where: { marcaId: marca.id },

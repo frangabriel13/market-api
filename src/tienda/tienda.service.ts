@@ -10,7 +10,6 @@ const CONFIGURACION = {
   slug: true,
   logoUrl: true,
   portadaUrl: true,
-  guiaTallesUrl: true,
   textosBanner: true,
   whatsapp: true,
   direccionRetiro: true,

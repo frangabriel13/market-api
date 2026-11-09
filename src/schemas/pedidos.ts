@@ -73,8 +73,9 @@ const clave = ({ productoId, color, talle }: ItemPedidoCrear) =>
 
 export const itemPedidoCrearSchema = z.object({
   productoId: z.uuid(),
-  color: z.string().trim().min(1).max(30),
-  talle: z.string().trim().min(1).max(30),
+  // SIN_VALOR si el producto no tiene colores o talles.
+  color: z.string().trim().max(30),
+  talle: z.string().trim().max(30),
   cantidad: z.number().int().min(1).max(9999),
 });
 

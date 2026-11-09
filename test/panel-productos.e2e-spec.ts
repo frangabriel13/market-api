@@ -5,6 +5,7 @@ import { StorageService } from '../src/storage/storage.service.js';
 import { cliente, crearApp, tokenDe, type AppDeTest } from './utils/app.js';
 import {
   crearCategoria,
+  crearListaTalles,
   crearMarca,
   crearProducto,
   crearUsuario,
@@ -20,12 +21,14 @@ describe('Panel: productos (e2e)', () => {
   let marcaA: string;
   let marcaB: string;
   let categoriaId: string;
+  let listaA: string;
 
   const NUEVO = () => ({
     nombre: 'Remera Lisa',
     descripcion: 'Algodón peinado',
     precio: 12000,
     categoriaId,
+    listaTallesId: listaA,
   });
 
   const fotoUrl = (marcaId: string, nombre: string) =>
@@ -41,8 +44,14 @@ describe('Panel: productos (e2e)', () => {
     marcaA = (await crearMarca(prisma, 'marca-a')).id;
     await prisma.marca.update({
       where: { id: marcaA },
-      data: { colores: ['Negro', 'Blanco', 'Gris'], talles: ['S', 'M', 'L'] },
+      data: { colores: ['Negro', 'Blanco', 'Gris'] },
     });
+    listaA = (
+      await crearListaTalles(prisma, {
+        marcaId: marcaA,
+        talles: ['S', 'M', 'L'],
+      })
+    ).id;
     marcaB = (await crearMarca(prisma, 'marca-b')).id;
     categoriaId = (await crearCategoria(prisma, 'remeras')).id;
     await crearUsuario(prisma, { email: 'admin@test.com' });
@@ -79,6 +88,8 @@ describe('Panel: productos (e2e)', () => {
         precio: 12000,
         visible: true,
         categoria: { id: categoriaId, nombre: 'remeras' },
+        conColores: true,
+        listaTallesId: listaA,
         fotos: [],
         variantes: [],
       });
@@ -124,11 +135,36 @@ describe('Panel: productos (e2e)', () => {
     });
 
     it.each([
+      ['solo colores', { listaTallesId: null }],
+      ['solo talles', { conColores: false }],
+      ['sin colores ni talles', { conColores: false, listaTallesId: null }],
+    ])('crea un producto con %s', async (_, modalidad) => {
+      const res = await panel
+        .post('/panel/productos')
+        .send({ ...NUEVO(), ...modalidad })
+        .expect(201);
+      expect(res.body).toMatchObject({
+        conColores: true,
+        listaTallesId: listaA,
+        ...modalidad,
+      });
+    });
+
+    it('400 si la lista de talles no existe', async () => {
+      const res = await panel
+        .post('/panel/productos')
+        .send({ ...NUEVO(), listaTallesId: INEXISTENTE })
+        .expect(400);
+      expect(res.body.message).toBe('La lista de talles no existe');
+    });
+
+    it.each([
       ['sin nombre', { nombre: '' }, 'nombre'],
       ['precio 0', { precio: 0 }, 'precio'],
       ['precio con centavos', { precio: 1500.5 }, 'precio'],
       ['precio como texto', { precio: '1500' }, 'precio'],
       ['sin categoría', { categoriaId: undefined }, 'categoriaId'],
+      ['sin lista de talles', { listaTallesId: undefined }, 'listaTallesId'],
     ])('400 %s', async (_, cambio, campo) => {
       const res = await panel
         .post('/panel/productos')
@@ -143,11 +179,13 @@ describe('Panel: productos (e2e)', () => {
       const viejo = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
         nombre: 'Viejo',
       });
       await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
         nombre: 'Nuevo',
       });
       await crearProducto(prisma, {
@@ -180,6 +218,7 @@ describe('Panel: productos (e2e)', () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
       await prisma.variante.createMany({
         data: [
@@ -193,6 +232,7 @@ describe('Panel: productos (e2e)', () => {
       await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
         nombre: 'Sin combinaciones',
       });
 
@@ -217,6 +257,7 @@ describe('Panel: productos (e2e)', () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
       await prisma.fotoProducto.createMany({
         data: [2, 1].map((orden) => ({
@@ -257,6 +298,7 @@ describe('Panel: productos (e2e)', () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
       const otraCategoria = await crearCategoria(prisma, 'buzos');
 
@@ -271,10 +313,39 @@ describe('Panel: productos (e2e)', () => {
       });
     });
 
+    it('al cambiar de lista de talles oculta las variantes de la anterior sin borrarlas', async () => {
+      const { id } = await crearProducto(prisma, {
+        marcaId: marcaA,
+        categoriaId,
+        listaTallesId: listaA,
+      });
+      await prisma.variante.create({
+        data: { productoId: id, color: 'Negro', talle: 'S' },
+      });
+      const calzado = await crearListaTalles(prisma, {
+        marcaId: marcaA,
+        talles: ['40'],
+        nombre: 'Calzado',
+      });
+
+      const res = await panel
+        .patch(`/panel/productos/${id}`)
+        .send({ listaTallesId: calzado.id })
+        .expect(200);
+      expect(res.body).toMatchObject({
+        listaTallesId: calzado.id,
+        variantes: [],
+      });
+      expect(await prisma.variante.count({ where: { productoId: id } })).toBe(
+        1,
+      );
+    });
+
     it('no cambia la visibilidad (tiene su propio endpoint)', async () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
       const res = await panel
         .patch(`/panel/productos/${id}`)
@@ -287,6 +358,7 @@ describe('Panel: productos (e2e)', () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
       await panel
         .patch(`/panel/productos/${id}`)
@@ -318,6 +390,7 @@ describe('Panel: productos (e2e)', () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
 
       const oculto = await visibilidad(id, { visible: false }).expect(200);
@@ -331,6 +404,7 @@ describe('Panel: productos (e2e)', () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
       const res = await visibilidad(id, {
         visible: false,
@@ -343,6 +417,7 @@ describe('Panel: productos (e2e)', () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
       await visibilidad(id, cuerpo).expect(400);
     });
@@ -363,6 +438,7 @@ describe('Panel: productos (e2e)', () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
       const admin = cliente(app, await tokenDe(app, 'admin@test.com'));
       await admin
@@ -392,8 +468,17 @@ describe('Panel: productos (e2e)', () => {
 
     beforeEach(async () => {
       productoId = (
-        await crearProducto(prisma, { marcaId: marcaA, categoriaId })
+        await crearProducto(prisma, {
+          marcaId: marcaA,
+          categoriaId,
+          listaTallesId: listaA,
+        })
       ).id;
+      await crearListaTalles(prisma, {
+        marcaId: marcaA,
+        talles: ['40'],
+        nombre: 'Calzado',
+      });
     });
 
     it('guarda la matriz con hay y agotado, en el orden de las listas de la marca', async () => {
@@ -429,7 +514,8 @@ describe('Panel: productos (e2e)', () => {
 
     it.each([
       ['un color que no es de la marca', [v('Rojo', 'S')], /color "Rojo"/],
-      ['un talle que no es de la marca', [v('Negro', 'XL')], /talle "XL"/],
+      ['un talle que no es de la lista', [v('Negro', 'XL')], /talle "XL"/],
+      ['un talle de otra lista de la marca', [v('Negro', '40')], /talle "40"/],
       [
         'combinaciones repetidas',
         [v('Negro', 'S'), v('Negro', 'S', false)],
@@ -450,7 +536,7 @@ describe('Panel: productos (e2e)', () => {
       expect(await prisma.variante.count()).toBe(0);
     });
 
-    it('si Piter quita un color de la marca, sus variantes dejan de mostrarse y vuelven al agregarlo', async () => {
+    it('si el fabricante quita un color, sus variantes dejan de mostrarse y vuelven al agregarlo', async () => {
       await reemplazar(matriz(['Negro', 'Blanco'], ['S', 'M'])).expect(200);
 
       await prisma.marca.update({
@@ -471,6 +557,91 @@ describe('Panel: productos (e2e)', () => {
         'Blanco S',
         'Blanco M',
       ]);
+    });
+
+    it('al guardar la matriz conserva las variantes ocultas', async () => {
+      await reemplazar(matriz(['Negro', 'Blanco'], ['S', 'M'])).expect(200);
+      await prisma.marca.update({
+        where: { id: marcaA },
+        data: { colores: ['Negro', 'Gris'] },
+      });
+      await reemplazar(matriz(['Negro'], ['S'])).expect(200);
+      expect(await prisma.variante.count()).toBe(3);
+
+      await prisma.marca.update({
+        where: { id: marcaA },
+        data: { colores: ['Negro', 'Blanco'] },
+      });
+      const res = await panel.get(`/panel/productos/${productoId}`);
+      expect(combinaciones(res)).toEqual(['Negro S', 'Blanco S', 'Blanco M']);
+    });
+
+    describe('sin colores o sin talles', () => {
+      const cambiar = (datos: object) =>
+        panel.patch(`/panel/productos/${productoId}`).send(datos).expect(200);
+
+      it('solo colores: la disponibilidad va por color', async () => {
+        await cambiar({ listaTallesId: null });
+        const res = await reemplazar([
+          v('Blanco', '', false),
+          v('Negro', ''),
+        ]).expect(200);
+        expect(res.body.variantes).toEqual([
+          v('Negro', ''),
+          v('Blanco', '', false),
+        ]);
+      });
+
+      it('solo talles: la disponibilidad va por talle', async () => {
+        await cambiar({ conColores: false });
+        const res = await reemplazar([v('', 'S'), v('', 'M', false)]).expect(
+          200,
+        );
+        expect(res.body.variantes).toEqual([v('', 'S'), v('', 'M', false)]);
+      });
+
+      it('sin ninguno de los dos: una sola variante para todo el producto', async () => {
+        await cambiar({ conColores: false, listaTallesId: null });
+        const res = await reemplazar([v('', '', false)]).expect(200);
+        expect(res.body.variantes).toEqual([v('', '', false)]);
+      });
+
+      it.each([
+        [
+          'un talle en un producto sin talles',
+          { listaTallesId: null },
+          [v('Negro', 'S')],
+          'Este producto no tiene talles',
+        ],
+        [
+          'un color en un producto sin colores',
+          { conColores: false },
+          [v('Negro', 'S')],
+          'Este producto no tiene colores',
+        ],
+        [
+          'una combinación sin color en un producto con colores',
+          {},
+          [v('', 'S')],
+          'Falta el color de una combinación',
+        ],
+      ])('400 con %s', async (_, modalidad, variantes, mensaje) => {
+        await cambiar(modalidad);
+        const res = await reemplazar(variantes).expect(400);
+        expect(res.body.message).toBe(mensaje);
+      });
+
+      it('al cambiar de modalidad lo anterior se oculta y vuelve al volver', async () => {
+        await reemplazar(matriz(['Negro'], ['S', 'M'])).expect(200);
+
+        const sinColores = await cambiar({ conColores: false });
+        expect(sinColores.body.variantes).toEqual([]);
+        await reemplazar([v('', 'S', false)]).expect(200);
+
+        const conColores = await cambiar({ conColores: true });
+        expect(combinaciones(conColores)).toEqual(['Negro S', 'Negro M']);
+        expect(await prisma.variante.count()).toBe(3);
+      });
     });
 
     it('404 para un producto de otra marca, sin tocar sus variantes', async () => {
@@ -509,6 +680,7 @@ describe('Panel: productos (e2e)', () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
       await prisma.fotoProducto.create({
         data: {
@@ -536,6 +708,7 @@ describe('Panel: productos (e2e)', () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
       const opcion = await prisma.opcionEntrega.create({
         data: { marcaId: marcaA, nombre: 'Retiro', tipo: 'RETIRO' },
@@ -576,6 +749,7 @@ describe('Panel: productos (e2e)', () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
       await prisma.fotoProducto.create({
         data: {
@@ -594,6 +768,7 @@ describe('Panel: productos (e2e)', () => {
       const { id } = await crearProducto(prisma, {
         marcaId: marcaA,
         categoriaId,
+        listaTallesId: listaA,
       });
       await prisma.fotoProducto.create({
         data: {

@@ -42,9 +42,21 @@ export async function crearCategoria(prisma: PrismaService, slug: string) {
   return prisma.categoria.create({ data: { nombre: slug, slug } });
 }
 
+export async function crearListaTalles(
+  prisma: PrismaService,
+  datos: { marcaId: string; talles: string[]; nombre?: string },
+) {
+  return prisma.listaTalles.create({ data: { nombre: 'Talles', ...datos } });
+}
+
 export async function crearProducto(
   prisma: PrismaService,
-  datos: { marcaId: string; categoriaId: string; nombre?: string },
+  datos: {
+    marcaId: string;
+    categoriaId: string;
+    listaTallesId?: string;
+    nombre?: string;
+  },
 ) {
   return prisma.producto.create({
     data: { nombre: 'Remera', precio: 1000, ...datos },

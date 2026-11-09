@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { formatearPrecio } from '../common/precio.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { esVigente, type ListasDeMarca } from '../productos/variantes.js';
+import { esVigente, listasDe } from '../productos/variantes.js';
 import type {
   ItemPedidoCrear,
   PedidoCreado,
@@ -32,7 +32,6 @@ export class PedidosTiendaService {
           minimoCompra: true,
           whatsapp: true,
           colores: true,
-          talles: true,
         },
       });
 
@@ -56,6 +55,8 @@ export class PedidosTiendaService {
           id: true,
           nombre: true,
           precio: true,
+          conColores: true,
+          listaTalles: { select: { talles: true } },
           variantes: {
             where: { disponible: true },
             select: { color: true, talle: true },
@@ -134,6 +135,8 @@ interface ProductoDelPedido {
   id: string;
   nombre: string;
   precio: number;
+  conColores: boolean;
+  listaTalles: { talles: string[] } | null;
   // Solo las disponibles.
   variantes: { color: string; talle: string }[];
 }
@@ -142,16 +145,17 @@ interface ProductoDelPedido {
 function armarItems(
   pedidos: ItemPedidoCrear[],
   productos: ProductoDelPedido[],
-  listas: ListasDeMarca,
+  marca: { colores: string[] },
 ) {
   const items = [];
   const noDisponibles: PedidoNoDisponible['noDisponibles'] = [];
   for (const { productoId, color, talle, cantidad } of pedidos) {
     const producto = productos.find((p) => p.id === productoId);
     const disponible =
-      esVigente({ color, talle }, listas) &&
-      producto?.variantes.some((v) => v.color === color && v.talle === talle);
-    if (producto && disponible) {
+      producto &&
+      esVigente({ color, talle }, listasDe({ ...producto, marca })) &&
+      producto.variantes.some((v) => v.color === color && v.talle === talle);
+    if (disponible) {
       items.push({
         productoId,
         nombreProducto: producto.nombre,

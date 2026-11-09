@@ -3,7 +3,8 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   estaAgotado,
-  LISTAS_DE_MARCA,
+  LISTAS_DEL_PRODUCTO,
+  listasDe,
   variantesVigentes,
 } from '../productos/variantes.js';
 import type {
@@ -22,7 +23,7 @@ const RESUMEN = {
   precio: true,
   fotos: { select: { urlMiniatura: true }, orderBy: { orden: 'asc' }, take: 1 },
   variantes: { ...VARIANTES, where: { disponible: true } },
-  marca: { select: LISTAS_DE_MARCA },
+  ...LISTAS_DEL_PRODUCTO,
 } satisfies Prisma.ProductoSelect;
 
 const DETALLE = {
@@ -36,7 +37,8 @@ const DETALLE = {
     orderBy: { orden: 'asc' },
   },
   variantes: VARIANTES,
-  marca: { select: LISTAS_DE_MARCA },
+  ...LISTAS_DEL_PRODUCTO,
+  listaTalles: { select: { talles: true, guiaTallesUrl: true } },
 } satisfies Prisma.ProductoSelect;
 
 // Solo productos visibles de la marca de la tienda: el resto responde 404,
@@ -68,9 +70,15 @@ export class ProductosTiendaService {
       select: DETALLE,
     });
     if (!producto) throw new NotFoundException('Producto no encontrado');
-    const { marca, ...resto } = producto;
-    const variantes = variantesVigentes(producto.variantes, marca);
-    return { ...resto, variantes, agotado: estaAgotado(variantes, marca) };
+    const { conColores: _, marca: _marca, listaTalles, ...resto } = producto;
+    const listas = listasDe(producto);
+    const variantes = variantesVigentes(producto.variantes, listas);
+    return {
+      ...resto,
+      variantes,
+      guiaTallesUrl: listaTalles?.guiaTallesUrl ?? null,
+      agotado: estaAgotado(variantes, listas),
+    };
   }
 
   // De los más nuevos a los más viejos.
@@ -85,11 +93,16 @@ export class ProductosTiendaService {
       orderBy: { creadoEn: 'desc' },
       take,
     });
-    return productos.map(({ fotos, variantes, marca, ...producto }) => ({
-      ...producto,
-      miniatura: fotos[0]?.urlMiniatura ?? null,
-      agotado: estaAgotado(variantes, marca),
-    }));
+    return productos.map(
+      ({ fotos, variantes, conColores, marca, listaTalles, ...producto }) => ({
+        ...producto,
+        miniatura: fotos[0]?.urlMiniatura ?? null,
+        agotado: estaAgotado(
+          variantes,
+          listasDe({ conColores, marca, listaTalles }),
+        ),
+      }),
+    );
   }
 
   private async asegurarCategoria(slug: string) {

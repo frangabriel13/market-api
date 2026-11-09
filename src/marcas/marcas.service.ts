@@ -35,7 +35,6 @@ const RESUMEN = {
 const IMAGENES = {
   logoUrl: true,
   portadaUrl: true,
-  guiaTallesUrl: true,
 } satisfies Prisma.MarcaSelect;
 
 type Imagenes = Prisma.MarcaGetPayload<{ select: typeof IMAGENES }>;
@@ -53,8 +52,6 @@ const DETALLE = {
   comoComprar: true,
   condicionesVenta: true,
   minimoCompra: true,
-  colores: true,
-  talles: true,
   usuario: { select: { email: true, activo: true } },
 } satisfies Prisma.MarcaSelect;
 
@@ -63,8 +60,6 @@ type FilaDetalle = Prisma.MarcaGetPayload<{ select: typeof DETALLE }>;
 const PANEL = {
   ...RESUMEN,
   logoUrl: true,
-  colores: true,
-  talles: true,
 } satisfies Prisma.MarcaSelect;
 
 const SLUG_EN_USO = 'Ya existe una marca con ese slug';

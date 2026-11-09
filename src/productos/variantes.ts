@@ -1,38 +1,82 @@
 import type { Prisma } from '../generated/prisma/client.js';
-import type { VarianteProducto } from '../schemas/productos.js';
+import { SIN_VALOR, type VarianteProducto } from '../schemas/productos.js';
 
-export const LISTAS_DE_MARCA = {
-  colores: true,
-  talles: true,
-} satisfies Prisma.MarcaSelect;
+// Los colores son de la marca y los talles, de la lista que usa el producto.
+// Sin colores o sin lista, el único valor vigente es SIN_VALOR.
+export const LISTAS_DEL_PRODUCTO = {
+  conColores: true,
+  marca: { select: { colores: true } },
+  listaTalles: { select: { talles: true } },
+} satisfies Prisma.ProductoSelect;
 
-export interface ListasDeMarca {
+export interface ListasDelProducto {
   colores: string[];
   talles: string[];
 }
 
+export const listasDe = ({
+  conColores,
+  marca,
+  listaTalles,
+}: {
+  conColores: boolean;
+  marca: { colores: string[] };
+  listaTalles: { talles: string[] } | null;
+}): ListasDelProducto => ({
+  colores: conColores ? marca.colores : [SIN_VALOR],
+  talles: listaTalles?.talles ?? [SIN_VALOR],
+});
+
 export function errorDeListas(
   variantes: VarianteProducto[],
-  { colores, talles }: ListasDeMarca,
+  { colores, talles }: ListasDelProducto,
 ): string | null {
   const color = variantes.find((v) => !colores.includes(v.color))?.color;
-  if (color) return `El color "${color}" no está en la lista de la marca`;
+  if (color !== undefined) {
+    return errorDeValor(
+      color,
+      colores,
+      'color',
+      'colores',
+      'tu lista de colores',
+    );
+  }
   const talle = variantes.find((v) => !talles.includes(v.talle))?.talle;
-  if (talle) return `El talle "${talle}" no está en la lista de la marca`;
+  if (talle !== undefined) {
+    return errorDeValor(
+      talle,
+      talles,
+      'talle',
+      'talles',
+      'la lista del producto',
+    );
+  }
   return null;
+}
+
+function errorDeValor(
+  valor: string,
+  lista: string[],
+  que: string,
+  plural: string,
+  donde: string,
+) {
+  if (lista[0] === SIN_VALOR) return `Este producto no tiene ${plural}`;
+  if (valor === SIN_VALOR) return `Falta el ${que} de una combinación`;
+  return `El ${que} "${valor}" no está en ${donde}`;
 }
 
 export const esVigente = (
   v: Pick<VarianteProducto, 'color' | 'talle'>,
-  { colores, talles }: ListasDeMarca,
+  { colores, talles }: ListasDelProducto,
 ) => colores.includes(v.color) && talles.includes(v.talle);
 
-// Si Piter quita un color o un talle de la marca, sus variantes no se borran:
-// dejan de mostrarse y vuelven si lo agrega de nuevo. Salen en el orden de las
-// listas de la marca.
+// Si el fabricante quita un color o un talle de sus listas, las variantes no
+// se borran: dejan de mostrarse y vuelven si lo agrega de nuevo. Salen en el
+// orden de las listas.
 export function variantesVigentes(
   variantes: VarianteProducto[],
-  listas: ListasDeMarca,
+  listas: ListasDelProducto,
 ): VarianteProducto[] {
   const { colores, talles } = listas;
   return variantes
@@ -48,13 +92,13 @@ export function variantesVigentes(
 // ninguna).
 export const estaAgotado = (
   variantes: VarianteProducto[],
-  listas: ListasDeMarca,
+  listas: ListasDelProducto,
 ) => !variantes.some((v) => v.disponible && esVigente(v, listas));
 
 // Para el listado del panel: combinaciones vigentes y cuántas están agotadas.
 export function contarCombinaciones(
   variantes: VarianteProducto[],
-  listas: ListasDeMarca,
+  listas: ListasDelProducto,
 ) {
   const vigentes = variantes.filter((v) => esVigente(v, listas));
   return {

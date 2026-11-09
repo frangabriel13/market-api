@@ -56,7 +56,6 @@ describe('Tienda: resolución de la marca y GET /tienda (e2e)', () => {
       slug: 'mi-marca',
       logoUrl: null,
       portadaUrl: null,
-      guiaTallesUrl: null,
       textosBanner: [],
       whatsapp: '5491100000000',
       direccionRetiro: null,

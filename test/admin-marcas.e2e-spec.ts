@@ -65,8 +65,6 @@ describe('Admin: marcas (e2e)', () => {
         whatsapp: '5491155555555',
         estado: 'ACTIVA',
         minimoCompra: 0,
-        colores: [],
-        talles: [],
         redes: {},
         usuario: null,
       });
@@ -83,8 +81,6 @@ describe('Admin: marcas (e2e)', () => {
         comoComprar: 'Armá tu pedido',
         condicionesVenta: 'Mínimo 6 prendas',
         minimoCompra: 80000,
-        colores: ['Negro', 'Blanco'],
-        talles: ['S', 'M', 'L'],
       };
       const res = await admin.post('/admin/marcas').send(config).expect(201);
       expect(res.body).toMatchObject({
@@ -109,6 +105,21 @@ describe('Admin: marcas (e2e)', () => {
       expect(res.body).toMatchObject({ estado: 'ACTIVA', dominioPropio: null });
     });
 
+    it('no recibe colores ni talles: los arma el fabricante', async () => {
+      const res = await admin
+        .post('/admin/marcas')
+        .send({ ...NUEVA, colores: ['Negro'], talles: ['S'] })
+        .expect(201);
+      expect(res.body).not.toHaveProperty('colores');
+      expect(res.body).not.toHaveProperty('talles');
+      const marca = await prisma.marca.findUniqueOrThrow({
+        where: { id: res.body.id },
+        include: { listasTalles: true },
+      });
+      expect(marca.colores).toEqual([]);
+      expect(marca.listasTalles).toEqual([]);
+    });
+
     it('rechaza un slug repetido con 409', async () => {
       const res = await admin
         .post('/admin/marcas')
@@ -121,7 +132,6 @@ describe('Admin: marcas (e2e)', () => {
       ['slug reservado', { slug: 'www' }, 'slug'],
       ['slug con espacios', { slug: 'textil norte' }, 'slug'],
       ['WhatsApp sin característica', { whatsapp: '5555-5555' }, 'whatsapp'],
-      ['colores repetidos', { colores: ['Negro', 'negro'] }, 'colores'],
       ['mínimo negativo', { minimoCompra: -1 }, 'minimoCompra'],
       ['red sin https', { redes: { instagram: 'instagram.com/x' } }, 'redes'],
       ['sin nombre', { nombre: '' }, 'nombre'],
@@ -180,13 +190,13 @@ describe('Admin: marcas (e2e)', () => {
     it('cambia solo lo que se manda', async () => {
       const res = await admin
         .patch(`/admin/marcas/${marcaId}`)
-        .send({ minimoCompra: 50000, talles: ['38', '39', '40'] })
+        .send({ minimoCompra: 50000, condicionesVenta: 'Mínimo 6 prendas' })
         .expect(200);
       expect(res.body).toMatchObject({
         nombre: 'Marca existente',
         slug: 'existente',
         minimoCompra: 50000,
-        talles: ['38', '39', '40'],
+        condicionesVenta: 'Mínimo 6 prendas',
       });
     });
 
@@ -293,6 +303,7 @@ describe('Admin: marcas (e2e)', () => {
       ['un archivo de más de 5 MB', { tamanio: 5 * 1024 * 1024 + 1 }],
       ['un formato que no es imagen', { contentType: 'application/pdf' }],
       ['un tipo de imagen desconocido', { tipo: 'banner' }],
+      ['la guía de talles (es de cada lista)', { tipo: 'guiaTalles' }],
     ])('rechaza %s', async (_, cambio) => {
       await pedirUrl({ ...LOGO, ...cambio }).expect(400);
     });
@@ -340,7 +351,7 @@ describe('Admin: marcas (e2e)', () => {
       const { url } = (await pedirUrl(LOGO, otra.id).expect(201)).body;
       await admin
         .patch(`/admin/marcas/${marcaId}`)
-        .send({ guiaTallesUrl: url })
+        .send({ portadaUrl: url })
         .expect(400);
     });
 
@@ -379,10 +390,10 @@ describe('Admin: marcas (e2e)', () => {
 
       it('borra cada imagen reemplazada en un mismo cambio', async () => {
         const logo = await nuevaUrl('logo');
-        const guia = await nuevaUrl('guiaTalles');
-        await editar({ logoUrl: logo, guiaTallesUrl: guia });
-        await editar({ logoUrl: await nuevaUrl('logo'), guiaTallesUrl: null });
-        expect(borrar.mock.calls.flat().sort()).toEqual([guia, logo].sort());
+        const portada = await nuevaUrl('portada');
+        await editar({ logoUrl: logo, portadaUrl: portada });
+        await editar({ logoUrl: await nuevaUrl('logo'), portadaUrl: null });
+        expect(borrar.mock.calls.flat().sort()).toEqual([portada, logo].sort());
       });
 
       it('no borra si la imagen no cambia o si se editan otros campos', async () => {

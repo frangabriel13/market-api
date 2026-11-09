@@ -2,7 +2,7 @@ import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { HEADER_HOST_TIENDA } from '../src/schemas/tienda.js';
 import { crearApp, type AppDeTest } from './utils/app.js';
-import { crearMarca, limpiarBase } from './utils/db.js';
+import { crearListaTalles, crearMarca, limpiarBase } from './utils/db.js';
 
 describe('Tienda: categorías y productos (e2e)', () => {
   let app: AppDeTest;
@@ -25,7 +25,15 @@ describe('Tienda: categorías y productos (e2e)', () => {
     marcaId = (await crearMarca(prisma, 'mi-marca')).id;
     await prisma.marca.update({
       where: { id: marcaId },
-      data: { colores: ['Negro', 'Blanco'], talles: ['S', 'M'] },
+      data: { colores: ['Negro', 'Blanco'] },
+    });
+    const { id: listaTallesId } = await prisma.listaTalles.create({
+      data: {
+        marcaId,
+        nombre: 'Ropa',
+        talles: ['S', 'M'],
+        guiaTallesUrl: 'https://imagenes.test/guia.webp',
+      },
     });
     const otraMarca = (await crearMarca(prisma, 'otra-marca')).id;
 
@@ -44,7 +52,11 @@ describe('Tienda: categorías y productos (e2e)', () => {
     const producto = (
       nombre: string,
       categoriaId: string,
-      extra: { visible?: boolean; marcaId?: string } = {},
+      extra: {
+        visible?: boolean;
+        marcaId?: string;
+        listaTallesId?: string;
+      } = {},
     ) =>
       prisma.producto
         .create({
@@ -53,6 +65,7 @@ describe('Tienda: categorías y productos (e2e)', () => {
             precio: 12500,
             categoriaId,
             marcaId,
+            listaTallesId,
             creadoEn: new Date(2026, 9, ++dia),
             ...extra,
           },
@@ -63,7 +76,12 @@ describe('Tienda: categorías y productos (e2e)', () => {
       gorra: await producto('Gorra', accesorios),
       vestido: await producto('Vestido', mujer),
       oculto: await producto('Oculto', hombre, { visible: false }),
-      deB: await producto('De B', calzado, { marcaId: otraMarca }),
+      deB: await producto('De B', calzado, {
+        marcaId: otraMarca,
+        listaTallesId: (
+          await crearListaTalles(prisma, { marcaId: otraMarca, talles: ['S'] })
+        ).id,
+      }),
     };
 
     await prisma.variante.createMany({
@@ -193,8 +211,35 @@ describe('Tienda: categorías y productos (e2e)', () => {
           { color: 'Negro', talle: 'S', disponible: false },
           { color: 'Blanco', talle: 'M', disponible: true },
         ],
+        guiaTallesUrl: 'https://imagenes.test/guia.webp',
         agotado: false,
       });
+    });
+
+    it('un producto sin colores ni talles trae una sola variante', async () => {
+      const { id } = await prisma.producto.create({
+        data: {
+          nombre: 'Gorra',
+          precio: 5000,
+          marcaId,
+          categoriaId: (await prisma.categoria.findFirstOrThrow()).id,
+          conColores: false,
+          variantes: {
+            create: [
+              { color: '', talle: '' },
+              // De cuando tenía colores: queda oculta.
+              { color: 'Negro', talle: 'S' },
+            ],
+          },
+        },
+      });
+      const res = await tienda(`/tienda/productos/${id}`).expect(200);
+      expect(res.body).toMatchObject({
+        variantes: [{ color: '', talle: '', disponible: true }],
+        guiaTallesUrl: null,
+        agotado: false,
+      });
+      expect(res.body).not.toHaveProperty('conColores');
     });
 
     it('agotado si solo está disponible una combinación que ya no es de la marca', async () => {

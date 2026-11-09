@@ -36,7 +36,6 @@ export interface MarcaTienda extends Pick<
   | 'slug'
   | 'logoUrl'
   | 'portadaUrl'
-  | 'guiaTallesUrl'
   | 'textosBanner'
   | 'whatsapp'
   | 'direccionRetiro'
@@ -79,5 +78,7 @@ export interface ProductoTienda extends Pick<
 > {
   categoria: CategoriaDeTienda;
   fotos: Pick<FotoProducto, 'url' | 'urlMiniatura'>[];
+  // La de su lista de talles.
+  guiaTallesUrl: string | null;
   agotado: boolean;
 }

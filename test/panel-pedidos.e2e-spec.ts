@@ -4,6 +4,7 @@ import { HEADER_HOST_TIENDA } from '../src/schemas/tienda.js';
 import { cliente, crearApp, tokenDe, type AppDeTest } from './utils/app.js';
 import {
   crearCategoria,
+  crearListaTalles,
   crearMarca,
   crearPedido,
   crearProducto,
@@ -84,10 +85,15 @@ describe('Panel: pedidos (e2e)', () => {
   it('el detalle muestra el pedido hecho en la tienda, con su copia de los ítems', async () => {
     await prisma.marca.update({
       where: { id: marcaId },
-      data: { colores: ['Negro'], talles: ['M'] },
+      data: { colores: ['Negro'] },
     });
     const categoriaId = (await crearCategoria(prisma, 'remeras')).id;
-    const producto = await crearProducto(prisma, { marcaId, categoriaId });
+    const lista = await crearListaTalles(prisma, { marcaId, talles: ['M'] });
+    const producto = await crearProducto(prisma, {
+      marcaId,
+      categoriaId,
+      listaTallesId: lista.id,
+    });
     await prisma.variante.create({
       data: { productoId: producto.id, color: 'Negro', talle: 'M' },
     });
