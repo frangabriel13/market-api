@@ -8,6 +8,11 @@ import {
 } from './generated/prisma/enums.js';
 import { loginSchema } from './schemas/auth.js';
 import { ETIQUETAS_TEXTO_LEGAL, TIPOS_TEXTO_LEGAL } from './schemas/legales.js';
+import {
+  coloresSchema,
+  listaTallesCrearSchema,
+  listaTallesEditarSchema,
+} from './schemas/listas.js';
 import { ESTADOS_MARCA } from './schemas/marcas.js';
 import {
   ETIQUETAS_TIPO_ENTREGA,
@@ -18,8 +23,14 @@ import {
   ETIQUETAS_ESTADO_PEDIDO,
   ETIQUETAS_FORMA_PAGO,
   FORMAS_PAGO,
+  itemPedidoCrearSchema,
   pedidoCrearSchema,
 } from './schemas/pedidos.js';
+import {
+  productoCrearSchema,
+  SIN_VALOR,
+  varianteSchema,
+} from './schemas/productos.js';
 import { ROLES } from './schemas/roles.js';
 import {
   formatearTelefono,
@@ -163,6 +174,88 @@ describe('identificarTienda', () => {
     expect(identificarTienda('mi-marca.localhost', 'localhost:3000')).toEqual({
       slug: 'mi-marca',
     });
+  });
+});
+
+describe('coloresSchema', () => {
+  const colores = (lista: object[]) =>
+    coloresSchema.safeParse({ colores: lista });
+
+  it('acepta valores nuevos y renombrados, sin espacios de más', () => {
+    expect(
+      colores([{ nombre: ' Negro ' }, { nombre: 'Azul', anterior: 'Celeste' }])
+        .data,
+    ).toEqual({
+      colores: [{ nombre: 'Negro' }, { nombre: 'Azul', anterior: 'Celeste' }],
+    });
+  });
+
+  it('rechaza repetidos sin importar mayúsculas', () => {
+    expect(
+      colores([{ nombre: 'Negro' }, { nombre: 'NEGRO' }]).error?.issues,
+    ).toMatchObject([{ message: 'Hay colores repetidos' }]);
+  });
+
+  it('rechaza renombrar dos veces el mismo valor', () => {
+    expect(
+      colores([
+        { nombre: 'Azul', anterior: 'Negro' },
+        { nombre: 'Rojo', anterior: 'Negro' },
+      ]).error?.issues,
+    ).toMatchObject([{ message: 'Hay colores renombrados dos veces' }]);
+  });
+});
+
+describe('listas de talles', () => {
+  it('crear pide nombre y talles sin repetir', () => {
+    expect(
+      listaTallesCrearSchema.safeParse({ nombre: ' ', talles: [] }).error
+        ?.issues,
+    ).toMatchObject([{ message: 'Ingresá el nombre de la lista' }]);
+    expect(
+      listaTallesCrearSchema.safeParse({ nombre: 'Ropa', talles: ['s', 'S'] })
+        .error?.issues,
+    ).toMatchObject([{ message: 'Hay talles repetidos' }]);
+  });
+
+  it('editar acepta cambios sueltos y null para quitar la guía', () => {
+    expect(
+      listaTallesEditarSchema.safeParse({ guiaTallesUrl: null }).success,
+    ).toBe(true);
+    expect(listaTallesEditarSchema.safeParse({}).success).toBe(true);
+  });
+});
+
+describe('productos sin color o sin talle', () => {
+  it('la variante y el ítem del pedido aceptan SIN_VALOR', () => {
+    expect(
+      varianteSchema.safeParse({
+        color: SIN_VALOR,
+        talle: 'M',
+        disponible: true,
+      }).success,
+    ).toBe(true);
+    expect(
+      itemPedidoCrearSchema.safeParse({
+        productoId: '0199f0f0-0000-7000-8000-000000000000',
+        color: SIN_VALOR,
+        talle: SIN_VALOR,
+        cantidad: 1,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('el producto pide elegir la lista de talles o null', () => {
+    const producto = {
+      nombre: 'Gorra',
+      precio: 1000,
+      categoriaId: '0199f0f0-0000-7000-8000-000000000000',
+    };
+    expect(productoCrearSchema.safeParse(producto).success).toBe(false);
+    expect(
+      productoCrearSchema.safeParse({ ...producto, listaTallesId: null })
+        .success,
+    ).toBe(true);
   });
 });
 

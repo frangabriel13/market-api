@@ -96,17 +96,31 @@ model Marca {
   comoComprar        String      @default("")
   condicionesVenta   String      @default("")
   minimoCompra       Int         @default(0)
+  // Los arma el fabricante, en el orden de la tienda.
   colores            String[]    @default([])
-  // TODO(decision): una sola lista de talles por marca; puede necesitar listas por categoría (ropa y calzado).
-  talles             String[]    @default([])
-  guiaTallesUrl      String?
   ultimoNumeroPedido Int         @default(0)
   creadoEn           DateTime    @default(now())
 
   usuario         Usuario?
   opcionesEntrega OpcionEntrega[]
+  listasTalles    ListaTalles[]
   productos       Producto[]
   pedidos         Pedido[]
+}
+
+// Las arma el fabricante (ej. "Ropa", "Calzado"); cada producto usa una.
+model ListaTalles {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  marcaId       String   @db.Uuid
+  nombre        String
+  talles        String[] @default([])
+  guiaTallesUrl String?
+  creadoEn      DateTime @default(now())
+
+  marca     Marca      @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  productos Producto[]
+
+  @@unique([marcaId, nombre])
 }
 
 model OpcionEntrega {
@@ -139,23 +153,30 @@ model Categoria {
 }
 
 model Producto {
-  id          String   @id @default(uuid(7)) @db.Uuid
-  marcaId     String   @db.Uuid
-  categoriaId String   @db.Uuid
-  nombre      String
-  descripcion String?
-  precio      Int
-  visible     Boolean  @default(true)
-  creadoEn    DateTime @default(now())
+  id            String   @id @default(uuid(7)) @db.Uuid
+  marcaId       String   @db.Uuid
+  categoriaId   String   @db.Uuid
+  // Sin lista, el producto no tiene talles; con conColores false, no tiene
+  // colores. Sus variantes guardan '' en lo que no tiene.
+  conColores    Boolean  @default(true)
+  // Una lista que usan productos no se puede borrar.
+  listaTallesId String?  @db.Uuid
+  nombre        String
+  descripcion   String?
+  precio        Int
+  visible       Boolean  @default(true)
+  creadoEn      DateTime @default(now())
 
-  marca     Marca          @relation(fields: [marcaId], references: [id], onDelete: Restrict)
-  categoria Categoria      @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
-  fotos     FotoProducto[]
-  variantes Variante[]
-  items     ItemPedido[]
+  marca       Marca          @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  categoria   Categoria      @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  listaTalles ListaTalles?   @relation(fields: [listaTallesId], references: [id], onDelete: Restrict)
+  fotos       FotoProducto[]
+  variantes   Variante[]
+  items       ItemPedido[]
 
   @@index([marcaId, visible, creadoEn])
   @@index([marcaId, categoriaId])
+  @@index([listaTallesId])
 }
 
 model FotoProducto {

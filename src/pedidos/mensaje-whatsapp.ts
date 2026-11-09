@@ -29,10 +29,14 @@ export interface DatosMensaje {
 
 export function mensajeDePedido(pedido: DatosMensaje): string {
   const { envio } = pedido;
-  const items = pedido.items.map(
-    (item) =>
-      `• ${item.nombreProducto} — ${item.color} / ${item.talle} × ${item.cantidad} — ${formatearPrecio(item.precioUnitario * item.cantidad)}`,
-  );
+  const items = pedido.items.map((item) => {
+    // Sin colores o sin talles va solo lo que el producto tiene.
+    const variante = [item.color, item.talle].filter(Boolean).join(' / ');
+    const producto = variante
+      ? `${item.nombreProducto} — ${variante}`
+      : item.nombreProducto;
+    return `• ${producto} × ${item.cantidad} — ${formatearPrecio(item.precioUnitario * item.cantidad)}`;
+  });
   return [
     '¡Hola! Te hago un pedido por la tienda.',
     `Pedido #${pedido.numero}`,

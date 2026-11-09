@@ -8,6 +8,7 @@ import { ZodValidationPipe } from './common/zod-validation.pipe.js';
 import { validateEnv } from './config/env.js';
 import { loggerConfig } from './config/logger.js';
 import { LegalesModule } from './legales/legales.module.js';
+import { ListasModule } from './listas/listas.module.js';
 import { MarcasModule } from './marcas/marcas.module.js';
 import { OpcionesEntregaModule } from './opciones-entrega/opciones-entrega.module.js';
 import { PedidosModule } from './pedidos/pedidos.module.js';
@@ -27,6 +28,7 @@ import { TiendaModule } from './tienda/tienda.module.js';
     MarcasModule,
     OpcionesEntregaModule,
     CategoriasModule,
+    ListasModule,
     ProductosModule,
     TiendaModule,
     LegalesModule,

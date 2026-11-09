@@ -24,16 +24,6 @@ const link = z.preprocess(
     .optional(),
 );
 
-const listaSinRepetidos = (que: string) =>
-  z
-    .array(z.string().trim().min(1).max(30))
-    .max(50)
-    .refine(
-      (lista) =>
-        new Set(lista.map((item) => item.toLowerCase())).size === lista.length,
-      { error: `Hay ${que} repetidos` },
-    );
-
 export const redesSchema = z.object({
   instagram: link,
   facebook: link,
@@ -55,8 +45,6 @@ export const marcaCrearSchema = z.object({
   comoComprar: z.string().trim().max(5000).optional(),
   condicionesVenta: z.string().trim().max(5000).optional(),
   minimoCompra: z.number().int().min(0).optional(),
-  colores: listaSinRepetidos('colores').optional(),
-  talles: listaSinRepetidos('talles').optional(),
 });
 
 const imagenUrl = z.url().nullable().optional();
@@ -64,12 +52,11 @@ const imagenUrl = z.url().nullable().optional();
 export const marcaEditarSchema = marcaCrearSchema.partial().extend({
   logoUrl: imagenUrl,
   portadaUrl: imagenUrl,
-  guiaTallesUrl: imagenUrl,
 });
 
 export const marcaEstadoSchema = z.object({ estado: estadoMarcaSchema });
 
-export const TIPOS_IMAGEN_MARCA = ['logo', 'portada', 'guiaTalles'] as const;
+export const TIPOS_IMAGEN_MARCA = ['logo', 'portada'] as const;
 
 export const imagenMarcaSchema = archivoImagenSchema.extend({
   tipo: z.enum(TIPOS_IMAGEN_MARCA),
@@ -102,7 +89,6 @@ export interface MarcaResumen {
 export interface Marca extends MarcaResumen {
   logoUrl: string | null;
   portadaUrl: string | null;
-  guiaTallesUrl: string | null;
   textosBanner: string[];
   whatsapp: string;
   direccionRetiro: string | null;
@@ -111,14 +97,11 @@ export interface Marca extends MarcaResumen {
   comoComprar: string;
   condicionesVenta: string;
   minimoCompra: number;
-  colores: string[];
-  talles: string[];
   usuario: { email: string; activo: boolean } | null;
 }
 
-// Lo que ve el fabricante de su marca (GET /panel/marca), solo lectura.
+// Lo que ve el fabricante de su marca (GET /panel/marca), solo lectura. Sus
+// colores y talles salen de GET /panel/listas.
 export interface MarcaPanel extends MarcaResumen {
   logoUrl: string | null;
-  colores: string[];
-  talles: string[];
 }

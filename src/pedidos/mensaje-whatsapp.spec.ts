@@ -71,6 +71,29 @@ describe('mensajeDePedido', () => {
       'Dirección: Calle Falsa 123, Rosario, Santa Fe (CP S2000ABC)',
     ]);
   });
+
+  it('sin colores o sin talles muestra solo lo que tiene el producto', () => {
+    const item = (nombreProducto: string, color: string, talle: string) => ({
+      nombreProducto,
+      color,
+      talle,
+      cantidad: 2,
+      precioUnitario: 1000,
+    });
+    const mensaje = mensajeDePedido({
+      ...pedido,
+      items: [
+        item('Remera Lisa', 'Blanco', ''),
+        item('Jean Recto', '', '42'),
+        item('Gorra', '', ''),
+      ],
+    });
+    expect(sinEspacioDuro(mensaje).split('\n').slice(3, 6)).toEqual([
+      '• Remera Lisa — Blanco × 2 — $ 2.000',
+      '• Jean Recto — 42 × 2 — $ 2.000',
+      '• Gorra × 2 — $ 2.000',
+    ]);
+  });
 });
 
 describe('linkDeWhatsapp', () => {

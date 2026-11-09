@@ -70,16 +70,22 @@ describe('Tienda: POST /tienda/pedidos (e2e)', () => {
         whatsapp: '5491122223333',
         minimoCompra: 20000,
         colores: ['Negro', 'Blanco'],
-        talles: ['S', 'M'],
+        listasTalles: { create: { nombre: 'Ropa', talles: ['S', 'M'] } },
         ultimoNumeroPedido: 1023,
       },
+      include: { listasTalles: true },
     });
     marcaId = marca.id;
-    const otra = await crearMarca(prisma, 'otra-marca');
-    await prisma.marca.update({
-      where: { id: otra.id },
-      data: { colores: ['Negro'], talles: ['S'] },
+    const otra = await prisma.marca.update({
+      where: { id: (await crearMarca(prisma, 'otra-marca')).id },
+      data: {
+        colores: ['Negro'],
+        listasTalles: { create: { nombre: 'Ropa', talles: ['S'] } },
+      },
+      include: { listasTalles: true },
     });
+    const listaDe = (id: string) =>
+      [marca, otra].find((m) => m.id === id)!.listasTalles[0].id;
 
     const opcion = (
       nombre: string,
@@ -101,13 +107,16 @@ describe('Tienda: POST /tienda/pedidos (e2e)', () => {
             categoriaId,
             marcaId,
             ...extra,
+            listaTallesId: listaDe(extra.marcaId ?? marcaId),
             variantes: {
               create: [
                 { color: 'Negro', talle: 'S' },
                 { color: 'Negro', talle: 'M', disponible: false },
                 { color: 'Blanco', talle: 'M' },
-                // Rojo ya no está en la lista de la marca.
+                // Rojo ya no está en la lista de la marca y L, en la de
+                // talles del producto.
                 { color: 'Rojo', talle: 'S' },
+                { color: 'Negro', talle: 'L' },
               ],
             },
           },
@@ -251,12 +260,75 @@ describe('Tienda: POST /tienda/pedidos (e2e)', () => {
     expect(deOtra.body.numero).toBe(1);
   });
 
+  describe('productos sin color o sin talle', () => {
+    let gorra: string;
+    let buzo: string;
+
+    beforeEach(async () => {
+      const { id: categoriaId } = await prisma.categoria.findFirstOrThrow();
+      const nuevo = (
+        nombre: string,
+        conColores: boolean,
+        variante: { color: string; talle: string },
+      ) =>
+        prisma.producto
+          .create({
+            data: {
+              nombre,
+              precio: 10000,
+              categoriaId,
+              marcaId,
+              conColores,
+              variantes: { create: variante },
+            },
+          })
+          .then((p) => p.id);
+      gorra = await nuevo('Gorra', false, { color: '', talle: '' });
+      buzo = await nuevo('Buzo', true, { color: 'Negro', talle: '' });
+    });
+
+    it('copia y muestra solo lo que tiene cada producto', async () => {
+      const res = await pedir(
+        retiro([
+          { productoId: gorra, color: '', talle: '', cantidad: 1 },
+          { productoId: buzo, color: 'Negro', talle: '', cantidad: 1 },
+        ]),
+      ).expect(201);
+
+      expect(textoDe(res.body.whatsappUrl).split('\n').slice(3, 5)).toEqual([
+        '• Gorra × 1 — $ 10.000',
+        '• Buzo — Negro × 1 — $ 10.000',
+      ]);
+      const items = await prisma.itemPedido.findMany({
+        orderBy: { nombreProducto: 'asc' },
+      });
+      expect(items.map((i) => [i.nombreProducto, i.color, i.talle])).toEqual([
+        ['Buzo', 'Negro', ''],
+        ['Gorra', '', ''],
+      ]);
+    });
+
+    it('409 si se piden con un color o un talle que no tienen', async () => {
+      const res = await pedir(
+        retiro([
+          { productoId: gorra, color: 'Negro', talle: '', cantidad: 2 },
+          { productoId: buzo, color: 'Negro', talle: 'S', cantidad: 2 },
+        ]),
+      ).expect(409);
+      expect(res.body.noDisponibles).toEqual([
+        { productoId: gorra, color: 'Negro', talle: '' },
+        { productoId: buzo, color: 'Negro', talle: 'S' },
+      ]);
+    });
+  });
+
   it('409 con los ítems que ya no están disponibles, sin crear nada', async () => {
     const res = await pedir(
       retiro([
         item(5),
         item(1, 'Negro', 'M'),
         item(1, 'Rojo', 'S'),
+        item(1, 'Negro', 'L'),
         { ...item(1), productoId: ids.oculto },
         { ...item(1), productoId: ids.deB },
       ]),
@@ -267,6 +339,7 @@ describe('Tienda: POST /tienda/pedidos (e2e)', () => {
       noDisponibles: [
         { productoId: ids.remera, color: 'Negro', talle: 'M' },
         { productoId: ids.remera, color: 'Rojo', talle: 'S' },
+        { productoId: ids.remera, color: 'Negro', talle: 'L' },
         { productoId: ids.oculto, color: 'Negro', talle: 'S' },
         { productoId: ids.deB, color: 'Negro', talle: 'S' },
       ],

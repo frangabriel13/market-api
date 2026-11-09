@@ -4,6 +4,12 @@ import { textoOpcional } from './texto.ts';
 
 export const MAXIMO_FOTOS = 10;
 
+// El color o el talle de las variantes, los ítems y el carrito de un producto
+// sin colores o sin talles.
+export const SIN_VALOR = '';
+
+const valorDeVarianteSchema = z.string().trim().max(30);
+
 export const productoCrearSchema = z.object({
   nombre: z.string().trim().min(1, { error: 'Ingresá el nombre' }).max(120),
   descripcion: textoOpcional(2000).optional(),
@@ -13,6 +19,10 @@ export const productoCrearSchema = z.object({
     .positive({ error: 'El precio tiene que ser mayor a 0' })
     .max(100_000_000),
   categoriaId: z.uuid({ error: 'Elegí una categoría' }),
+  // false: sin colores (talle único o accesorio).
+  conColores: z.boolean().optional(),
+  // null: sin talles.
+  listaTallesId: z.uuid({ error: 'Elegí la lista de talles' }).nullable(),
   // false = "Guardar sin publicar".
   visible: z.boolean().optional(),
 });
@@ -24,8 +34,8 @@ export const productoEditarSchema = productoCrearSchema
 export const productoVisibilidadSchema = z.object({ visible: z.boolean() });
 
 export const varianteSchema = z.object({
-  color: z.string().trim().min(1),
-  talle: z.string().trim().min(1),
+  color: valorDeVarianteSchema,
+  talle: valorDeVarianteSchema,
   disponible: z.boolean(),
 });
 
@@ -33,7 +43,8 @@ const clave = ({ color, talle }: { color: string; talle: string }) =>
   `${color}\u0000${talle}`;
 
 // La matriz color × talle va completa: cada color elegido en cada talle
-// elegido, marcado como hay o agotado.
+// elegido, marcado como hay o agotado. Sin colores o sin talles, cada variante
+// lleva SIN_VALOR en lo que falta; un accesorio tiene una sola.
 export const variantesSchema = z
   .object({ variantes: z.array(varianteSchema).max(2500) })
   .superRefine(({ variantes }, ctx) => {
@@ -109,6 +120,8 @@ export interface Producto {
   precio: number;
   visible: boolean;
   categoria: CategoriaDeProducto;
+  conColores: boolean;
+  listaTallesId: string | null;
   fotos: FotoProducto[];
   variantes: VarianteProducto[];
 }
