@@ -36,7 +36,6 @@ export interface MarcaTienda extends Pick<
   | 'slug'
   | 'logoUrl'
   | 'portadaUrl'
-  | 'textosBanner'
   | 'whatsapp'
   | 'direccionRetiro'
   | 'horariosRetiro'
@@ -53,9 +52,15 @@ export interface MarcaTienda extends Pick<
 
 type CategoriaDeTienda = Pick<Categoria, 'nombre' | 'slug'>;
 
+// `miniatura`: la del producto visible más nuevo que tiene fotos (en una
+// categoría, también los de sus subcategorías), para su círculo en el inicio.
+interface CategoriaConMiniatura extends CategoriaDeTienda {
+  miniatura: string | null;
+}
+
 // Solo las que tienen productos visibles de la marca (GET /tienda/categorias).
-export interface CategoriaTienda extends CategoriaDeTienda {
-  subcategorias: CategoriaDeTienda[];
+export interface CategoriaTienda extends CategoriaConMiniatura {
+  subcategorias: CategoriaConMiniatura[];
 }
 
 // ?categoria=<slug>: una categoría trae también los de sus subcategorías.

@@ -49,15 +49,32 @@ export class CategoriasService {
 
   // Una categoría aparece si tiene productos visibles de la marca o si los
   // tiene alguna de sus subcategorías.
-  listarDeTienda(marcaId: string): Promise<CategoriaTienda[]> {
+  async listarDeTienda(marcaId: string): Promise<CategoriaTienda[]> {
+    const visibles = {
+      marcaId,
+      visible: true,
+    } satisfies Prisma.ProductoWhereInput;
     const conProductos = {
-      productos: { some: { marcaId, visible: true } },
+      productos: { some: visibles },
     } satisfies Prisma.CategoriaWhereInput;
     const campos = {
       nombre: true,
       slug: true,
+      productos: {
+        where: { ...visibles, fotos: { some: {} } },
+        select: {
+          creadoEn: true,
+          fotos: {
+            select: { urlMiniatura: true },
+            orderBy: { orden: 'asc' },
+            take: 1,
+          },
+        },
+        orderBy: { creadoEn: 'desc' },
+        take: 1,
+      },
     } satisfies Prisma.CategoriaSelect;
-    return this.prisma.categoria.findMany({
+    const categorias = await this.prisma.categoria.findMany({
       where: {
         padreId: null,
         OR: [conProductos, { subcategorias: { some: conProductos } }],
@@ -68,6 +85,17 @@ export class CategoriasService {
       },
       orderBy: ORDEN,
     });
+    return categorias.map(({ productos, subcategorias, ...categoria }) => ({
+      ...categoria,
+      miniatura: miniaturaMasNueva([
+        ...productos,
+        ...subcategorias.flatMap((sub) => sub.productos),
+      ]),
+      subcategorias: subcategorias.map(({ productos, ...sub }) => ({
+        ...sub,
+        miniatura: miniaturaMasNueva(productos),
+      })),
+    }));
   }
 
   // El slug no cambia al renombrar: no rompe links ya compartidos. Las
@@ -145,6 +173,18 @@ export class CategoriasService {
     });
     return _max.orden === null ? 0 : _max.orden + 1;
   }
+}
+
+interface ProductoConFoto {
+  creadoEn: Date;
+  fotos: { urlMiniatura: string }[];
+}
+
+function miniaturaMasNueva(productos: ProductoConFoto[]): string | null {
+  const [masNuevo] = productos.toSorted(
+    (a, b) => b.creadoEn.getTime() - a.creadoEn.getTime(),
+  );
+  return masNuevo?.fotos[0]?.urlMiniatura ?? null;
 }
 
 function traducirError(error: unknown): never {

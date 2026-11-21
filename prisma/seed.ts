@@ -82,7 +82,6 @@ async function seedMarcaDePrueba() {
       nombre: 'Marca de prueba',
       slug: 'prueba',
       whatsapp: '5491100000000',
-      textosBanner: ['Venta mayorista', 'Envíos a todo el país'],
       redes: { instagram: '' },
       comoComprar:
         'Armá tu pedido en la tienda y envialo por WhatsApp. Te respondemos con el total y los datos para pagar.',
