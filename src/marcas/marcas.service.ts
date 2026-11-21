@@ -44,7 +44,6 @@ const CAMPOS_IMAGEN = Object.keys(IMAGENES) as (keyof Imagenes)[];
 const DETALLE = {
   ...RESUMEN,
   ...IMAGENES,
-  textosBanner: true,
   whatsapp: true,
   direccionRetiro: true,
   horariosRetiro: true,

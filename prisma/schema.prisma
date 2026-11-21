@@ -88,7 +88,6 @@ model Marca {
   estado             EstadoMarca @default(ACTIVA)
   logoUrl            String?
   portadaUrl         String?
-  textosBanner       String[]    @default([])
   whatsapp           String
   direccionRetiro    String?
   horariosRetiro     String?

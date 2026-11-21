@@ -38,7 +38,6 @@ export const marcaCrearSchema = z.object({
     error: 'Ese nombre está reservado',
   }),
   whatsapp: telefonoSchema,
-  textosBanner: z.array(z.string().trim().min(1).max(120)).max(3).optional(),
   direccionRetiro: textoOpcional(200).optional(),
   horariosRetiro: textoOpcional(200).optional(),
   redes: redesSchema.optional(),
@@ -89,7 +88,6 @@ export interface MarcaResumen {
 export interface Marca extends MarcaResumen {
   logoUrl: string | null;
   portadaUrl: string | null;
-  textosBanner: string[];
   whatsapp: string;
   direccionRetiro: string | null;
   horariosRetiro: string | null;

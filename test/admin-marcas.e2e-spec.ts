@@ -74,7 +74,6 @@ describe('Admin: marcas (e2e)', () => {
     it('guarda toda la configuración', async () => {
       const config = {
         ...NUEVA,
-        textosBanner: ['Venta mayorista'],
         direccionRetiro: 'Av. Avellaneda 1234',
         horariosRetiro: '',
         redes: { instagram: 'https://instagram.com/textilnorte', tiktok: '' },

@@ -120,13 +120,58 @@ describe('Tienda: categorías y productos (e2e)', () => {
     it('solo las que tienen productos visibles de la marca', async () => {
       const res = await tienda('/tienda/categorias').expect(200);
       expect(res.body).toEqual([
-        { nombre: 'Accesorios', slug: 'accesorios', subcategorias: [] },
+        {
+          nombre: 'Accesorios',
+          slug: 'accesorios',
+          miniatura: null,
+          subcategorias: [],
+        },
         {
           nombre: 'Mujer',
           slug: 'mujer',
-          subcategorias: [{ nombre: 'Remeras', slug: 'mujer-remeras' }],
+          // El vestido es más nuevo pero no tiene fotos: va la de la remera.
+          miniatura: 'https://imagenes.test/0-mini.webp',
+          subcategorias: [
+            {
+              nombre: 'Remeras',
+              slug: 'mujer-remeras',
+              miniatura: 'https://imagenes.test/0-mini.webp',
+            },
+          ],
         },
       ]);
+    });
+
+    it('la miniatura es del producto visible más nuevo de la marca', async () => {
+      const remeras = await prisma.categoria.findUniqueOrThrow({
+        where: { slug: 'mujer-remeras' },
+      });
+      const { id: oculta } = await prisma.producto.create({
+        data: {
+          nombre: 'Oculta',
+          precio: 1000,
+          categoriaId: remeras.id,
+          marcaId,
+          visible: false,
+          creadoEn: new Date(2026, 10, 1),
+        },
+      });
+      const mini = (productoId: string, nombre: string) => ({
+        productoId,
+        url: `https://imagenes.test/${nombre}.webp`,
+        urlMiniatura: `https://imagenes.test/${nombre}-mini.webp`,
+        orden: 0,
+      });
+      await prisma.fotoProducto.createMany({
+        data: [mini(ids.vestido, 'vestido'), mini(oculta, 'oculta')],
+      });
+
+      const res = await tienda('/tienda/categorias').expect(200);
+      const mujer = res.body.find((c: { slug: string }) => c.slug === 'mujer');
+      expect(mujer.miniatura).toBe('https://imagenes.test/vestido-mini.webp');
+      expect(mujer.subcategorias[0].miniatura).toBe(
+        'https://imagenes.test/0-mini.webp',
+      );
     });
 
     it('muestra la categoría padre aunque solo tengan productos sus subcategorías', async () => {
